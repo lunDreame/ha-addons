@@ -201,7 +201,7 @@ const DISCOVERY_PAYLOAD = {
         "unit_of_meas": ""
     }],
     "doorlock": [{
-        "_intg": "switch",
+        "_intg": "",
         "~": "{prefix}/doorlock/{room}/{index}",
         "name": "{prefix}_doorlock",
         "cmd_t": "~/command",
