@@ -123,10 +123,6 @@
 ### `light_dimming`
 * 디밍 조명세대의 경우 활성화 합니다.
 
-### `light_cutoff`
-* 조명 일괄끄기를 활성화 합니다.
-* 일괄소등과 다른 기능입니다. 거실 조명제외 각 방의 조명이 동시에 꺼집니다.
-
 ### `energy / control`
 * about
   * energy 또는 control 하나만 연결하는 경우에는 애드온 구성 serial, socket 경우 path, address를 ""로 성정(기본값으로 설정되어 있음)
