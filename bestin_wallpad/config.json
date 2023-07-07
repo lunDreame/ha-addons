@@ -1,6 +1,6 @@
 {
     "name": "HDC BESTIN WallPad RS485 Addon",
-    "version": "1.6.9",
+    "version": "1.7",
     "slug": "bestin_wallpad",
     "description": "현대산업개발 베스틴 월패드용 애드온입니다.",
     "arch": [
@@ -20,8 +20,7 @@
     "options": {
         "server_enable": true,
         "server_type": "v2",
-        "light_dimming": false,
-        "light_cutoff": true,
+        "smart_lighting": false,
         "energy": {
             "type": "socket",
             "path": "",
@@ -60,8 +59,7 @@
     "schema": {
         "server_enable": "bool",
         "server_type": "list(v1|v2)",
-        "light_dimming": "bool",
-        "light_cutoff": "bool",
+        "smart_lighting": "bool",
         "energy": {
             "type": "list(serial|socket)",
             "path": "str?",
