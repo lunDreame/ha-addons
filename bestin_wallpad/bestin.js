@@ -320,8 +320,11 @@ class BestinRS485 {
 
             const topic = "bestin/+/+/+/command";
 
-            logger.info(`subscribe  ${topic}`)
-            client.subscribe(topic, { qos: 0 });
+            logger.info(`subscribe  ${topic}`);
+            client.subscribe(topic, { qos: 2 });
+
+            this.initialDiscovery(options.mqtt.prefix);
+            setTimeout(() => this.initialEvResgister(), 1000);
         });
 
         client.on("error", (err) => {
@@ -364,7 +367,7 @@ class BestinRS485 {
         }
     }
 
-    mqttClientUpdate(device, room, name, value) {
+    updateMqttClient(device, room, name, value) {
         if (!this._mqttConnected) {
             return;
         }
@@ -375,11 +378,21 @@ class BestinRS485 {
             // 사용량이 계속 바뀌는 경우 로깅 제외(에너지, 난방 현재온도, 콘센트 사용량 등)
             logger.info(`publish to mqtt: ${topic} = ${value}`);
         }
-        this._mqttClient.publish(topic, String(value));
+        this._mqttClient.publish(topic, String(value), { qos: 2, retain: true });
+    }
+
+    initialMqttClient(payload) {
+        // only the elevator updates the initial status
+
+        const topic = `${payload["~"]}/state`;
+        const state = payload["state"];
+
+        logger.info(`initial state: ${topic} = ${state}`);
+        this._mqttClient.publish(topic, state, { qos: 2, retain: true });
     }
 
     formatDiscovery(prefix, device, room, name) {
-        if (options.light_dimming && room === "0") device = "lightDimming";
+        if (options.smart_lighting && room === "0") device = "lightDimming";
 
         for (let i = 0; i < DISCOVERY_PAYLOAD[device].length; i++) {
             let payload = Object.assign({}, DISCOVERY_PAYLOAD[device][i]);
@@ -402,15 +415,21 @@ class BestinRS485 {
     }
 
     initialDiscovery(prefix) {
-        // TODO: Wallpad light batch mqtt discover function added
         let payload = DISCOVERY_PAYLOAD["lightCutoff"][0];
         payload["~"] = payload["~"].replace("{prefix}", prefix);
         payload["name"] = payload["name"].replace("{prefix}", prefix);
 
         this.mqttDiscovery(payload);
     }
+    initialEvResgister() {
+        logger.info("registering elevator srv...");
+        this.serverCommand("elevator", null, JSON.parse(fs.readFileSync("./session.json")));
+    }
 
     mqttDiscovery(payload) {
+        if (payload["state"]) {
+            this.initialMqttClient(payload);
+        }
         let integration = payload["_intg"];
         let payloadName = payload["name"];
 
@@ -418,7 +437,7 @@ class BestinRS485 {
         payload.device = DISCOVERY_DEVICE;
 
         const topic = `homeassistant/${integration}/bestin_wallpad/${payloadName}/config`;
-        this._mqttClient.publish(topic, JSON.stringify(payload));
+        this._mqttClient.publish(topic, JSON.stringify(payload), { qos: 2, retain: true });
     }
 
     // 패킷 체크섬 검증
@@ -709,11 +728,10 @@ class BestinRS485 {
         }
         deviceStatus.property[name] = value;
 
-        this.mqttClientUpdate(device, room, name, value);
-        if (options.light_cutoff) this.initialDiscovery(options.mqtt.prefix);
+        this.updateMqttClient(device, room, name, value);
 
-        const discoveryOn = setImmediate(() => {
-            if (!this._discovery && options.mqtt.discovery) {
+        const discoveryTime = setImmediate(() => {
+            if (!this.discoveryCheck && options.mqtt.discovery) {
                 this.formatDiscovery(options.mqtt.prefix, device, room, name);
             } else {
                 return true;
@@ -721,8 +739,8 @@ class BestinRS485 {
         });
 
         setTimeout(() => {
-            clearImmediate(discoveryOn);
-            this._discovery = true;
+            clearImmediate(discoveryTime);
+            this.discoveryCheck = true;
         }, 20000);
     }
 
@@ -848,7 +866,7 @@ class BestinRS485 {
         }
         const json = JSON.parse(fs.readFileSync("./session.json"));
 
-        const statusUrl = isV1 ? this.format(this.jsonObject(V1LIGHTSTATUS), options.server.address, json.phpsessid, json.userid, json.username) : this.format(this.jsonObject(V2LIGHTSTATUS), json.url, options.light_dimming ? "smartlight" : "livinglight", json["access-token"]);
+        const statusUrl = isV1 ? this.format(this.jsonObject(V1LIGHTSTATUS), options.server.address, json.phpsessid, json.userid, json.username) : this.format(this.jsonObject(V2LIGHTSTATUS), json.url, options.smart_lighting ? "smartlight" : "livinglight", json["access-token"]);
         this.getServerLightStatus(statusUrl, type, "fresh");
         setInterval(() => {
             this.getServerLightStatus(statusUrl, type, "refresh");
@@ -915,7 +933,7 @@ class BestinRS485 {
             logger.error(`failed to parse JSON light status: ${error}`);
         }
 
-        const units = options.light_dimming ? jsonData?.map[0].units : jsonData?.units;
+        const units = options.smart_lighting ? jsonData?.map[0].units : jsonData?.units;
         if (!units) {
             logger.warn("failed to parse JSON light status: 'units' property not found");
             return;
@@ -937,8 +955,9 @@ class BestinRS485 {
                 this.updateProperty(device, room, unit, state);
             }
 
-            if (options.light_dimming) {
-                unit = { [`switch${unit.unit}`]: unit.state, "dimming": unit.dimming, "color": this.mapColorValueInRange(unit.color, 1, 10, 153, 500) };
+            if (options.smart_lighting) {
+                unit = { [`switch${unit.unit}`]: unit.state, "dimming": unit.dimming, "color": this.mapColorValueInRange(unit.color, 1, 10, 500, 153) };
+                this.slightArray = units[0];
                 for (let item in unit) {
                     this.updateProperty(device, room, item, unit[item]);
                 }
@@ -948,34 +967,42 @@ class BestinRS485 {
         });
     }
 
-    async getServerEVStatus(json) {
-        const url = `${json.url}/v2/admin/elevators/sse`;
-        const es = new EventSource(url);
+    async getServerEVStatus(json, response) {
+        let eventData = {};
+        const self = this;
 
-        es.addEventListener("moveinfo", (event) => {
-            const data = JSON.parse(event.data);
-
-            const device = "elevator";
-            const room = "1";
-
-            if (data.move_info) {
-                const info = {
-                    "call": data.move_info.MoveDir === "" ? "off" : "on",
-                    "direction": data.move_info.MoveDir ?? "대기",
-                    "floor": data.move_info.MoveDir === "" ? "대기 층" : data.move_info.Floor
-                };
-                for (let item in info) {
-                    this.updateProperty(device, room, item, info[item]);
-                }
-            }
-            if (data.address !== options.server.address) cleaerEventListener();
-        });
+        const es = new EventSource(`${json.url}/v2/admin/elevators/sse`);
+        es.addEventListener("moveinfo", handleMoveInfo);
 
         es.onerror = (error) => {
             logger.error(`EventSource elevator error occurred: ${error}`);
+            es.close();
         };
 
+        function handleMoveInfo(event) {
+            const data = JSON.parse(event.data);
+
+            if (data.address === options.server.address) {
+                eventData = {
+                    device: "elevator",
+                    serial: String(data.move_info.Serial),
+                    data: {
+                        call: response.result === "ok" ? "off" : "on",
+                        direction: data.move_info.MoveDir || "대기",
+                        floor: data.move_info.Floor || "대기 층"
+                    }
+                };
+            } else {
+                eventData.splice(0);
+                cleaerEventListener();
+            }
+            for (const ed in eventData.data) {
+                self.updateProperty(eventData.device, eventData.serial, ed, eventData.data[ed]);
+            }
+        }
+
         function cleaerEventListener() {
+            es.removeEventListener("moveinfo", handleMoveInfo);
             es.close();
             logger.warn("elevator has arrived at its destination. terminate the server-sent events connection");
         }
@@ -984,15 +1011,16 @@ class BestinRS485 {
     serverCommand(topic, value, json) {
         if (topic[1] === "light") {
             this.serverLightCommand(topic[3], value, options.server_type, json);
-        } else if (topic[1] === "elevator") {
+        } else if (topic === "elevator" || topic[1] === "elevator") {
             const evUrl = this.format(V2ELEVATORCMD, json.url, options.server.address, options.server.uuid);
             const logMessage = 'elevator calls through the server are supported only in v2 version!';
             options.server_type === "v2" ? this.serverEvCommand(evUrl, json) : logger.warn(logMessage);
         }
     }
 
-    async serverLightCommand(unit, state, type, json) {
-        let url;
+    serverlightCommandManager(unit, state, type, json) {
+        let slightArray, url = {};
+
         if (type === "v1") {
             if (unit === "all") {
                 logger.error('v1 server does not support living room lighting batch');
@@ -1000,18 +1028,27 @@ class BestinRS485 {
             }
             url = this.format(this.jsonObject(V1LIGHTCMD), options.server.address, json.phpsessid, json.userid, json.username, unit, state);
         } else {
-            const light = this.format(this.jsonObject(V2LIGHTCMD), json.url, unit.slice(-1), unit, state, json["access-token"]);
-            // TODO 스마트조명 인자 수정필요
-            const factor = { "unit": "1", "state": "", "dimming": null, "color": null };
-            if (unit === "switch1") {
-                factor["state"] = state;
+            if (options.smart_lighting) {
+                slightArray = this.slightArray;
+
+                if (unit === "switch1") {
+                    slightArray["state"] = state;
+                } else {
+                    if (unit === "dimming" && state === "0") slightArray["state"] = "off", slightArray["dimming"] = "0";
+                    else if (unit === "dimming") slightArray["state"] = "on", slightArray["dimming"] = state;
+                    else if (unit === "color") slightArray["state"] = "on", slightArray["color"] = this.mapColorValueInRange(state, 500, 153, 1, 10);
+                }
+                url = this.format(this.jsonObject(V2SLIGHTCMD), json.url, JSON.stringify(slightArray), json["access-token"]);
             } else {
-                if (unit === "dimming" && state === "0") factor["state"] = "off", factor["dimming"] = "0";
-                else factor["state"] = "on", factor[unit] = state;
+                url = this.format(this.jsonObject(V2LIGHTCMD), json.url, unit.slice(-1), unit, state, json["access-token"]);
             }
-            const smartLight = this.format(this.jsonObject(V2SLIGHTCMD), json.url, JSON.stringify(factor), json["access-token"]);
-            url = options.light_dimming ? smartLight : light;
         }
+        return url;
+    }
+
+    async serverLightCommand(unit, state, type, json) {
+        const url = this.serverlightCommandManager(unit, state, type, json);
+
         logger.info(`server lighting command ===> ${JSON.stringify(url)}`);
 
         try {
@@ -1052,7 +1089,7 @@ class BestinRS485 {
 
             logger.info("server elevator command request successful!");
             logger.info(`server ev command  <=== ${JSON.stringify(response.data)}`);
-            this.getServerEVStatus(json);
+            this.getServerEVStatus(json, response.data);
         } catch (error) {
             if (error instanceof ReferenceError) return;
 
