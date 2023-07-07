@@ -992,10 +992,11 @@ class BestinRS485 {
                         floor: data.move_info.Floor || "대기 층"
                     }
                 };
-            } else {
-                eventData.splice(0);
+            }
+            if (data?.move_info === undefined || data?.move_info === null) {
                 cleaerEventListener();
             }
+
             for (const ed in eventData.data) {
                 self.updateProperty(eventData.device, eventData.serial, ed, eventData.data[ed]);
             }
