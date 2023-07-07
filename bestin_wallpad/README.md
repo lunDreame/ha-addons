@@ -120,7 +120,7 @@
 ### `server_type`
 * 사용하는 Server Type을 고릅니다. [v1 = 1.0, v2 = 2.0]
 
-### `light_dimming`
+### `smart_lighting`
 * 디밍 조명세대의 경우 활성화 합니다.
 
 ### `energy / control`
