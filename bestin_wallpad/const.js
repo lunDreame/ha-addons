@@ -146,6 +146,7 @@ const DISCOVERY_PAYLOAD = {
         "~": "{prefix}/light/all/cutoff",
         "name": "{prefix}_lightbreak",
         "cmd_t": "~/command",
+        "icon": "mdi:lightbulb-group-off"
     }],
     "outlet": [{
         "_intg": "",
@@ -201,7 +202,7 @@ const DISCOVERY_PAYLOAD = {
         "unit_of_meas": ""
     }],
     "doorlock": [{
-        "_intg": "",
+        "_intg": "switch",
         "~": "{prefix}/doorlock/{room}/{index}",
         "name": "{prefix}_doorlock",
         "cmd_t": "~/command",
@@ -213,7 +214,7 @@ const DISCOVERY_PAYLOAD = {
     "elevator": [{
         "_intg": "",
         "~": "{prefix}/elevator/{room}/{index}",
-        "name": "{prefix}_ev{index}_srv",
+        "name": "{prefix}_ev{index}_srv{room}",
         "cmd_t": "~/command",
         "stat_t": "~/state",
         "pl_on": "on",
