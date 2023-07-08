@@ -757,7 +757,7 @@ class BestinRS485 {
 
         const loginFunc = type === "v1" ? this.serverLogin.bind(this) : this.serverLogin2.bind(this);
         const url = type === "v1" ? this.format(V1LOGIN, options.server.address, options.server.username, options.server.password) : this.format(V2LOGIN, options.server.uuid);
-        loginFunc("fresh", url);
+        loginFunc("login", url);
         setInterval(loginFunc, type === "v1" ? 1200000 : 3600000, "refresh", url);
     }
 
@@ -767,20 +767,19 @@ class BestinRS485 {
         try {
             const response = await axios(url);
 
-            if (time === "refresh") {
-                logger.info("IPARK v1 server session refreshing...");
-            }
+            if (time === "refresh") logger.info("IPARK v1 server session refreshing...");
 
-            if (time === "fresh") {
-                logger.info("IPARK v1 server login successful!");
-                logger.info(`server login <=== ${JSON.stringify(response.data)}`);
+            logger.info(`server login <=== ${JSON.stringify(response.data)}`);
 
-                this.loginManagement(response, "v1", "fresh");
+            if (response.data.ret !== "success") {
+                logger.info(`IPARK v1 server session ${time} fail. [${response.data.ret}]`);
+            } else if (response.status === 401) {
+                logger.info("session has expired. attempt to reconnect...");
+                this.serverCreate(true, "v1");
             } else {
-                logger.info("IPARK v1 server session refresh successful!");
-                logger.info(`server login <=== ${JSON.stringify(response.data)}`);
+                logger.info(`IPARK v1 server session ${time} successful!`);
 
-                this.loginManagement(response, "v1", "refresh");
+                this.loginManagement(response, "v1", time);
             }
         } catch (error) {
             if (error instanceof ReferenceError) return;
@@ -794,20 +793,17 @@ class BestinRS485 {
 
         try {
             const response = await axios(url);
-            if (time === "refresh") {
-                logger.info("IPARK v2 server session refreshing...");
-            }
 
-            if (time === "fresh") {
-                logger.info("IPARK v2 server login successful!");
-                logger.info(`server2 login <=== ${JSON.stringify(response.data)}`);
+            if (time === "refresh") logger.info("IPARK v2 server session refreshing...");
 
-                this.loginManagement(response.data, "v2", "fresh");
+            logger.info(`server2 login <=== ${JSON.stringify(response.data)}`);
+
+            if (response.status === 500) {
+                logger.info(`IPARK v2 server session ${time} fail!`);
             } else {
-                logger.info("IPARK v2 server session refresh successful!");
-                logger.info(`server2 login <=== ${JSON.stringify(response.data)}`);
+                logger.info(`IPARK v2 server session ${time} successful!`);
 
-                this.loginManagement(response.data, "v2", "refresh");
+                this.loginManagement(response.data, "v2", time);
             }
         } catch (error) {
             if (error instanceof ReferenceError) return;
@@ -860,7 +856,7 @@ class BestinRS485 {
 
         try {
             fs.writeFileSync("./session.json", JSON.stringify(data));
-            if (time === "fresh") logger.info(`session.json file write successful!`);
+            if (time === "login") logger.info(`session.json file write successful!`);
         } catch (error) {
             logger.error(`session.json file write fail. [${error}]`);
         }
@@ -879,9 +875,14 @@ class BestinRS485 {
         try {
             const response = await axios(url);
 
-            logger.info("server light status request successful!");
             logger.info(`server lighting status <=== ${type === "v1" ? JSON.parse(JSON.stringify(response.data)) : JSON.stringify(response.data)
                 }`);
+
+            if (type === "v2" && response.data.result !== "ok") {
+                logger.info("server light status request fail!");
+                return;
+            }
+            logger.info("server light status request successful!");
 
             if (type === "v1") {
                 this.parseXmlLightStatus(response.data);
@@ -1055,9 +1056,14 @@ class BestinRS485 {
         try {
             const response = await axios(url);
 
-            logger.info("server livinglight command request successful!");
             logger.info(`server lighting command <=== ${type === "v1" ? JSON.parse(JSON.stringify(response.data)) : JSON.stringify(response.data)
                 }`);
+
+            if (type === "v2" && response.data.result !== "ok") {
+                logger.info("server livinglight command request fail!");
+                return;
+            }
+            logger.info("server livinglight command request successful!");
 
             const device = "light";
             const room = "0";
@@ -1088,9 +1094,13 @@ class BestinRS485 {
         try {
             const response = await axios(url);
 
-            logger.info("server elevator command request successful!");
             logger.info(`server ev command  <=== ${JSON.stringify(response.data)}`);
-            this.getServerEVStatus(json, response.data);
+            if (response.data.result === "ok") {
+                logger.info("server elevator command request successful!");
+                this.getServerEVStatus(json, response.data);
+            } else {
+                logger.info("server elevator command request fail!");
+            }
         } catch (error) {
             if (error instanceof ReferenceError) return;
 
