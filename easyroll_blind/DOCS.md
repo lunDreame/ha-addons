@@ -26,7 +26,7 @@ mqtt: []
 scan_interval: 300
 ```
 
-### Option: `blind` (optional)
+### Option: `blind` (essential)
 
 Enter addresses for easy roll blinds you want to connect to Type "- 'ip address'" as many blinds as you want
 
@@ -37,7 +37,7 @@ blind:
   - ....
 ```
 
-### Option: `mqtt` (optional)
+### Option: `mqtt` (essential)
 
 Enter mqtt broker information Required *server *port / username, password is optional and fits your broker information
 
@@ -49,7 +49,7 @@ mqtt:
     passwd: passwd
 ```
 
-### Option: `scan_interval(unit. minute)`
+### Option: `scan_interval` [unit. minute]
 Default value: `900`
 
 Blind query status lookup interval. Gets the blind status every [scan_interval] interval.
