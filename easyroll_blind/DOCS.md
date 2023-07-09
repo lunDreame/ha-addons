@@ -49,11 +49,10 @@ mqtt:
     passwd: passwd
 ```
 
-#### Option: `scan_interval(unit. minute)`
+### Option: `scan_interval(unit. minute)`
+Default value: `900`
 
 Blind query status lookup interval. Gets the blind status every [scan_interval] interval.
-
-Default value: `900`
 
 ## Support
 
