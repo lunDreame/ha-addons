@@ -1,5 +1,8 @@
 ## 수정 내역
 
+## 1.7
+* Fix a bug
+
 ## 1.6.9
 * large update 
 
