@@ -23,7 +23,7 @@ Add-on configuration:
 ```yaml
 blind: []
 mqtt: []
-scan_interval: 300
+scan_interval: 900
 ```
 
 ### Option: `blind` (essential)
