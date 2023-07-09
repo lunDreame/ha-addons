@@ -24,7 +24,6 @@ Add-on configuration:
 blind: []
 mqtt: []
 scan_interval: 300
-command_interval: 30
 ```
 
 ### Option: `blind` (optional)
@@ -54,13 +53,7 @@ mqtt:
 
 Blind query status lookup interval. Gets the blind status every [scan_interval] interval.
 
-Default value: `300`
-
-#### Option: `command_interval(unit. second)`
-
-Status activation time after blind command manipulation. Polling and updating continuously by [command_interval].
-
-Default value: `30`
+Default value: `900`
 
 ## Support
 
