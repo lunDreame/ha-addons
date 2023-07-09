@@ -1,5 +1,5 @@
 name: EasyRoll Smart Blind
-version: 1.7
+version: 1.8
 slug: easyroll
 description: Add-on for EasyRoll Smart Blind
 arch:
@@ -21,8 +21,7 @@ options:
       port: 1883
       user: null
       passwd: null
-  scan_interval: 300  
-  command_interval: 40
+  scan_interval: 900  
 schema:
   blind: 
     - str  
@@ -32,4 +31,3 @@ schema:
       user: str?
       passwd: str?
   scan_interval: int
-  command_interval: int
