@@ -4,17 +4,19 @@ share_dir=/share/bestin
 srv_dir=$share_dir/srv
 
 copy_file() {
-    if [ ! -f "$share_dir/$1" ]; then
-        mkdir -p "$share_dir"
-        mv "/$1" "$share_dir"
+    if [ -f "$share_dir/$1" ]; then
+        rm "$share_dir/$1"
     fi
+    mkdir -p "$share_dir"
+    mv "/$1" "$share_dir"
 }
 
 copy_file_to_srv() {
-    if [ ! -f "$srv_dir/$1" ]; then
-        mkdir -p "$srv_dir"
-        mv "/$1" "$srv_dir"
+    if [ -f "$srv_dir/$1" ]; then
+        rm "$srv_dir/$1"
     fi
+    mkdir -p "$srv_dir"
+    mv "/$1" "$srv_dir"
 }
 
 run_node() {
