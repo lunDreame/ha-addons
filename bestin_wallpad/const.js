@@ -156,7 +156,8 @@ const DISCOVERY_PAYLOAD = {
         "stat_t": "~/state",
         "pl_on": "on",
         "pl_off": "off",
-        "icon": ""
+        "icon": "",
+        "unit_of_meas": "W"
     }],
     "gas": [{
         "_intg": "",
