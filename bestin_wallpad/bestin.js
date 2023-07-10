@@ -552,7 +552,7 @@ class BestinRS485 {
         const code = codeHex.toString("hex");
         const expectLength = packet[2] === packet.length ? 4 : 3;
         const actualLength = packet.length;
-        const actualHeader = packet.subarray(0, expectLength).toString("hex").toUpeerCase();
+        const actualHeader = packet.subarray(0, expectLength).toString("hex").toUpperCase();
 
         const validMsgInfos = MSG_INFO.filter(({ header, length }) => {
             if (header === actualHeader && length === actualLength) return actualHeader;
