@@ -409,7 +409,10 @@ class BestinRS485 {
             payload["name"] = payload["name"].replace("{prefix}", prefix).replace("{room}", room).replace("{index}", name);
             payload["name"] = payload["name"].replace(/power[1-4]|switch/g, "");
 
-            if (device === "energy") payload["unit_of_meas"] = room === "electric" ? "kWh" : "m³";
+            if (device === "energy") {
+                if (name === "realt") payload["unit_of_meas"] = room === "electric" ? "W" : "m³/h";
+                else payload["unit_of_meas"] = room === "electric" ? "Wh" : "m³";
+            }
             this.mqttDiscovery(payload);
         }
     }
