@@ -5,18 +5,16 @@ srv_dir=$share_dir/srv
 
 copy_file() {
     if [ -f "$share_dir/$1" ]; then
-        rm "$share_dir/$1"
+        mkdir -p "$share_dir"
+        mv "/$1" "$share_dir"
     fi
-    mkdir -p "$share_dir"
-    mv "/$1" "$share_dir"
 }
 
 copy_file_to_srv() {
     if [ -f "$srv_dir/$1" ]; then
-        rm "$srv_dir/$1"
+        mkdir -p "$srv_dir"
+        mv "/$1" "$srv_dir"
     fi
-    mkdir -p "$srv_dir"
-    mv "/$1" "$srv_dir"
 }
 
 run_node() {
