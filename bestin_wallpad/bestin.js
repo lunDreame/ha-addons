@@ -177,16 +177,16 @@ const MSG_INFO = [
         device: "energy", header: "02D13082", length: 48, request: "ack",
         parseToProperty: (buf) => {
             let props = [], index = 13;
-            const indexKeys = { "elec": [8, 12], "heat": [], "hwater": [], "gas": [32, 35], "water": [17, 19] },
-                elements = ["electric", "heat", "hotwater", "gas", "water"];
+            const range = { "eletric": [8, 12], "heat": [], "hotwater": [], "gas": [32, 35], "water": [17, 19] },
+                keys = ["electric", "heat", "hotwater", "gas", "water"];
 
-            for (const element of elements) {
-                let total = parseInt(buf.slice(indexKeys[element][0], indexKeys[element][1]).toString("hex"));
+            for (const key of keys) {
+                let total = parseInt(buf.slice(range[key][0], range[key][1]).toString("hex"));
                 let realt = parseInt(buf.slice(index, index + 2).toString("hex"));
                 index += 8;
 
-                props.push({ device: "energy", room: element, name: "total", value: element === "electric" ? (total / 100).toFixed(1) : (total / 10) });
-                props.push({ device: "energy", room: element, name: "realt", value: realt });
+                props.push({ device: "energy", room: key, name: "total", value: key === "electric" ? (total / 100).toFixed(1) : (total / 10) });
+                props.push({ device: "energy", room: key, name: "realt", value: realt });
             }
             return props;
         }
@@ -550,7 +550,7 @@ class BestinRS485 {
         const code = codeHex.toString("hex");
         const expectLength = packet[2] === packet.length ? 4 : 3;
         const actualLength = packet.length;
-        const actualHeader = packet.subarray(0, expectLength).toString("hex");
+        const actualHeader = packet.subarray(0, expectLength).toString("hex").toUpeerCase();
 
         const validMsgInfos = MSG_INFO.filter(({ header, length }) => {
             if (header === actualHeader && length === actualLength) return actualHeader;
