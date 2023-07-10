@@ -181,7 +181,7 @@ const MSG_INFO = [
                 keys = ["electric", "heat", "hotwater", "gas", "water"];
 
             for (const key of keys) {
-                let total = parseInt(buf.slice(range[key][0], range[key][1]).toString("hex"));
+                let total = parseInt(buf.slice(range[key]?.[0], range[key]?.[1]).toString("hex"));
                 let realt = parseInt(buf.slice(index, index + 2).toString("hex"));
                 index += 8;
 
