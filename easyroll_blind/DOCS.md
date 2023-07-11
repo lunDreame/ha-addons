@@ -64,7 +64,7 @@ You have several options to get them answered:
 
 In case you've found a bug, please [open an issue on our GitHub][issue].
 
-* * If you experience problems after the add-on update, delete the files in the /share/easyroll folder and try restarting the add-on.
+* If you experience problems after the add-on update, delete the files in the /share/easyroll folder and try restarting the add-on.
 * File Editor File Editor (Directories First = true, Enforce Basepath = false) File Editor
 
 [forum]: https://cafe.naver.com/koreassistant
