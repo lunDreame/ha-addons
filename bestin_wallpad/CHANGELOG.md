@@ -1,5 +1,9 @@
 ## 수정 내역
 
+## 1.7.2
+* Mqtt Discovery 이름포맷 오류수정
+* eletric 오타수정
+
 ## 1.7
 * Fix a bug
 
