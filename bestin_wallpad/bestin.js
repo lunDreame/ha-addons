@@ -177,7 +177,7 @@ const MSG_INFO = [
         device: "energy", header: "02D13082", length: 48, request: "ack",
         parseToProperty: (buf) => {
             let props = [], index = 13;
-            const range = { "eletric": [8, 12], "heat": [], "hotwater": [], "gas": [32, 35], "water": [17, 19] },
+            const range = { "electric": [8, 12], "heat": [], "hotwater": [], "gas": [32, 35], "water": [17, 19] },
                 keys = ["electric", "heat", "hotwater", "gas", "water"];
 
             for (const key of keys) {
