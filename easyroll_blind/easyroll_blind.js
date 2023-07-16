@@ -1,4 +1,4 @@
-const request = require("request");
+const axios = require("axios");
 const mqtt = require("mqtt");
 const logger = require("simple-node-logger").createSimpleLogger();
 const options = require("/data/options.json");
@@ -29,23 +29,23 @@ class EasyrollBlind {
             username: options.mqtt[0].user || null,
             password: options.mqtt[0].passwd || null,
         });
-        logger.info("Initializing MQTT...");
+        logger.info("initializing MQTT...");
 
         client.on("connect", () => {
             logger.info("MQTT connection successful!");
 
             const topic = "easyroll/+/+/+/command";
-            logger.info(`Subscribing to ${topic}`);
+            logger.info("Subscribe: " + topic);
 
             client.subscribe(topic);
         });
 
         client.on("error", (err) => {
-            logger.error(`MQTT connection error: ${err}`);
+            logger.error("MQTT connection error: " + err);
         });
 
         client.on("reconnect", () => {
-            logger.warn("MQTT connection lost. Trying to reconnect...");
+            logger.warn("MQTT connection lost. trying to reconnect...");
         });
 
         client.on("message", this.mqttCommand.bind(this));
@@ -65,111 +65,100 @@ class EasyrollBlind {
         return smartBlinds;
     }
 
-    requestSmartBlindState() {
+    async requestSmartBlindState() {
         const self = this;
-        function makeRequest(url, smartBlindId) {
-            request.get(url, function (error, response, body) {
-                if (error && response.statusCode !== 200) {
-                    logger.error(`Smart blind (${smartBlindId}) state request failed! (${error || request.statusCode})`);
-                    return;
-                }
-                self.handleResponse("initial", body, smartBlindId);
+        async function makeRequest(url, smartBlindId) {
+            try {
+                const response = await axios.get(url);
+
+                self.handleResponse("initial", response.data, smartBlindId);
                 setInterval(() => {
-                    self.handleResponse(null, body, smartBlindId);
+                    self.handleResponse(null, response.data, smartBlindId);
                 }, options.scan_interval * 1000);
-            });
+            } catch (error) {
+                logger.error(`The smart blind seems to be offline. Please check the blinds [Error: ${error}]`);
+            };
         }
 
         const smartBlinds = this.findSmartBlinds();
 
         for (const smartBlind of smartBlinds) {
             const { id, address } = smartBlind;
-            makeRequest(stateUrl.replace("{}", address), id);
+            await makeRequest(stateUrl.replace("{}", address), id);
         }
     }
 
-    async handleResponse(timeInterval, body, smartBlindId) {
-        try {
-            const state = await JSON.parse(body);
+    handleResponse(timeInterval, body, smartBlindId) {
+        if (body.result !== "success") {
+            logger.error(`Smart blind (${smartBlindId}) latest status inquiry error [Result: ${body.result}]`);
+            return;
+        }
 
-            if (state.result !== "success") {
-                logger.error(`Smart blind (${smartBlindId}) state error: ${state.result}`);
+        const smartBlindState = {
+            serialNumber: body.serial_number.toLowerCase(),
+            index: smartBlindId,
+            ip: body.local_ip,
+            position: Math.round(body.position),
+        };
+
+        if (timeInterval === "initial") {
+            logger.info(`Smart blind (${smartBlindId}) latest status inquiry success! [${body.serial_number}:${body.local_ip}]`);
+            this.discoverSmartBlind(smartBlindState);
+        } else {
+            logger.info(`Update smart blind (${smartBlindId}) position: ${smartBlindState.position}%`);
+        }
+
+        this.parseSmartBlindState(undefined, smartBlindState);
+    }
+
+    async requestSmartBlindPoll(url, smartBlindId, target) {
+        const self = this;
+        try {
+            const response = await axios.get(url);
+
+            if (response.data.result !== "success") {
+                logger.error(`Smart blind (${smartBlindId}) latest status inquiry error [Result: ${response.data.result}]`);
                 return;
             }
 
             const smartBlindState = {
-                serialNumber: state.serial_number.toLowerCase(),
+                serialNumber: response.data.serial_number.toLowerCase(),
                 index: smartBlindId,
-                ip: state.local_ip,
-                position: Math.round(state.position),
+                ip: response.data.local_ip,
+                position: Math.round(response.data.position),
+                property: ["OPEN", "CLOSE", "STOP"].includes(target) ? Math.round(response.data.position) !== 0 && Math.round(response.data.position) !== 100 : Math.round(response.data.position) != target
             };
+            self.parseSmartBlindState(self.mqttDict, smartBlindState);
 
-            if (timeInterval === "initial") {
-                logger.info(`Smart blind (${smartBlindId}) state request success! [${state.serial_number}:${state.local_ip}]`);
-                this.discoverSmartBlind(smartBlindState);
-            } else {
-                logger.info(`Update smart blind (${smartBlindId}) position: ${smartBlindState.position}%`);
+            if (smartBlindState.position == target ||
+                smartBlindState.position === (target === "OPEN" ? 0 : 100) ||
+                target === "STOP"
+            ) {
+                clearInterval(self.timeInterval);
             }
-
-            this.parseSmartBlindState(undefined, smartBlindState);
         } catch (error) {
-            logger.error(`Smart blind (${smartBlindId}) state request failed! (${error})`);
+            logger.error(`Failed to polling smart blind: ${smartBlindId} [Error: ${error}]`);
         }
     }
 
-    requestSmartBlindPoll(url, smartBlindId, target) {
+    async sendSmartBlindCommand(url, data, header, smartBlindId, target) {
         const self = this;
-        request.get(url, function (error, response, body) {
-            try {
-                const state = JSON.parse(body);
+        try {
+            const response = await axios.post(url, data, header);
 
-                if (state.result !== "success") {
-                    logger.error(`Smart blind (${smartBlindId}) polling error: ${state.result}`);
-                    return;
-                }
-
-                const smartBlindState = {
-                    serialNumber: state.serial_number.toLowerCase(),
-                    index: smartBlindId,
-                    ip: state.local_ip,
-                    position: Math.round(state.position),
-                    property: ["OPEN", "CLOSE", "STOP"].includes(target) ? Math.round(state.position) !== 0 && Math.round(state.position) !== 100 : Math.round(state.position) != target
-                };
-                self.parseSmartBlindState(self.mqttDict, smartBlindState);
-
-                if (smartBlindState.position == target ||
-                    smartBlindState.position === (target === "OPEN" ? 0 : 100) ||
-                    target === "STOP"
-                ) {
-                    clearInterval(self.timeInterval);
-                }
-            } catch (error) {
-                logger.error(`Smart blind (${smartBlindId}) polling request failed! (${error})`);
+            if (response.data.result !== "success") {
+                logger.error(`Smart blind (${smartBlindId}) ${url.body.mode === "general" ? "general operation command" : "percent move command"} error [Result: ${response.data.result}]`);
+                return;
             }
-        });
-    }
 
-    sendSmartBlindCommand(url, smartBlindId, target) {
-        const self = this;
-        request.post(url, function (error, response, body) {
-            try {
-                const state = JSON.parse(body);
-
-                if (state.result !== "success") {
-                    logger.error(`Smart blind (${smartBlindId}) command error: ${state.result}`);
-                    return;
-                }
-                logger.info(`Smart blind (${smartBlindId}) command request success!`);
-
-                if (target !== undefined) {
-                    self.timeInterval = setInterval(() => {
-                        self.requestSmartBlindPoll(url.url.replace("action", "lstinfo"), smartBlindId, target);
-                    }, 1000);
-                }
-            } catch (error) {
-                logger.error(`Smart blind (${smartBlindId}) command request failed! (${error})`);
+            if (target !== null) {
+                self.timeInterval = setInterval(async () => {
+                    await self.requestSmartBlindPoll(url.replace("action", "lstinfo"), smartBlindId, target);
+                }, 1000);
             }
-        });
+        } catch (error) {
+            logger.error(`Failed to ${url.body.mode === "general" ? "general operation command" : "percent move command"} smart blind: ${smartBlindId} [Error: ${error}]`);
+        }
     }
 
     parseSmartBlindState(direction, smartBlindState) {
@@ -206,7 +195,7 @@ class EasyrollBlind {
 
         for (const [topic, payload] of Object.entries(topics)) {
             this.mqttClient.publish(topic, payload, { retain: true });
-            logger.info(`Publishing to MQTT: ${topic} = ${payload}`);
+            logger.info(`Publish to MQTT: ${topic} = ${payload}`);
         }
     }
 
@@ -231,12 +220,12 @@ class EasyrollBlind {
         };
         this.mqttClient.publish(topic, JSON.stringify(payload), { retain: true });
 
-        ["M1", "M2", "M3"].map(M => {
-            const topic = `homeassistant/button/easyroll_${smartBlind.index}_${M}/${smartBlind.serialNumber}/config`;
+        for (const key of ["M1", "M2", "M3"]) {
+            const topic = `homeassistant/button/easyroll_${smartBlind.index}_${key}/${smartBlind.serialNumber}/config`;
             const payload = {
-                name: `easyroll_${smartBlind.serialNumber}_${M}`,
-                cmd_t: `easyroll/${smartBlind.index}/${smartBlind.serialNumber}/${M}/command`,
-                uniq_id: `easyroll_${smartBlind.serialNumber}_${M}`,
+                name: `easyroll_${smartBlind.serialNumber}_${key}`,
+                cmd_t: `easyroll/${smartBlind.index}/${smartBlind.serialNumber}/${key}/command`,
+                uniq_id: `easyroll_${smartBlind.serialNumber}_${key}`,
                 device: {
                     ids: "Smart Blind",
                     name: "Smart Blind",
@@ -246,7 +235,7 @@ class EasyrollBlind {
                 }
             };
             this.mqttClient.publish(topic, JSON.stringify(payload), { retain: true });
-        });
+        }
     }
 
     mqttCommand(topic, message) {
@@ -256,7 +245,7 @@ class EasyrollBlind {
         const hostDict = [];
 
         if (topics[0] !== "easyroll") {
-            logger.error(`Invalid topic prefix: ${topics[0]}`);
+            logger.error("Invalid topic prefix: " + topics[0]);
             return;
         }
 
@@ -270,27 +259,15 @@ class EasyrollBlind {
 
         if (topics[3] === "direction") {
             this.mqttDict = payload;
-            const params = {
-                url: hostDict[1],
-                headers: { "content-type": "application/json" },
-                body: JSON.stringify({ mode: "general", command: command[payload] }),
-            };
-            this.sendSmartBlindCommand(params, hostDict[0], payload);
+            this.sendSmartBlindCommand(hostDict[1], { "mode": "general", "command": command[payload] }, { headers: { "content-type": "application/json" } }
+                , hostDict[0], payload);
         } else if (topics[3] === "position") {
             this.mqttDict = (payload < this.previousState.position ? "OPEN" : "CLOSE");
-            const params = {
-                url: hostDict[1],
-                headers: { "content-type": "application/json" },
-                body: JSON.stringify({ mode: "level", command: payload }),
-            };
-            this.sendSmartBlindCommand(params, hostDict[0], payload);
+            this.sendSmartBlindCommand(hostDict[1], { "mode": "level", "command": payload }, { headers: { "content-type": "application/json" } }
+                , hostDict[0], payload);
         } else {
-            const params = {
-                url: hostDict[1],
-                headers: { "content-type": "application/json" },
-                body: JSON.stringify({ mode: "general", command: topics[3] }),
-            };
-            this.sendSmartBlindCommand(params, hostDict[0], undefined);
+            this.sendSmartBlindCommand(hostDict[1], { "mode": "general", "command": topics[3] }, { headers: { "content-type": "application/json" } }
+                , hostDict[0], null);
         }
     }
 }
