@@ -31,7 +31,7 @@ class EasyrollBlind {
             password: options.mqtt[0].passwd,
         }
         if (options.mqtt_ssl) {
-            mqttOptions.protocol = 'mqtts';
+            mqttOptions.protocol = "mqtts";
             mqttOptions.ca = [fs.readFileSync(options.mqtt_ssl_certificate[0].ca_path)];
             mqttOptions.cert = fs.readFileSync(options.mqtt_ssl_certificate[0].cert_path);
             mqttOptions.key = fs.readFileSync(options.mqtt_ssl_certificate[0].key_path);
