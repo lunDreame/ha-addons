@@ -15,14 +15,20 @@ startup: application
 boot: auto
 uart: true
 options:
+  mqtt_ssl: false
   blind: []
   mqtt: 
     - server: 192.168.1.1
       port: 1883
       user: null
       passwd: null
+  mqtt_ssl_certificate:
+    - ca_path: /share/easyroll_blind/ca.crt
+      cert_path: /share/easyroll_blind/client.crt
+      key_path: /share/easyroll_blind/client.key
   scan_interval: 900  
 schema:
+  mqtt_ssl: bool
   blind: 
     - str  
   mqtt: 
@@ -30,4 +36,8 @@ schema:
       port: int
       user: str?
       passwd: str?
+  mqtt_ssl_certificate:
+    - ca_path: str?
+      cert_path: str?
+      key_path: str?
   scan_interval: int
