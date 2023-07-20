@@ -26,7 +26,7 @@ mqtt: []
 scan_interval: 900
 ```
 
-### Option: `mqtt_ssl_certificate` (selective)
+### Option: `mqtt_ssl` (selective)
 
 Enable mqtt ssl security authentication if required. Section *mqtt_ssl_certificate is required.
 
