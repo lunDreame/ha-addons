@@ -1,5 +1,6 @@
 const axios = require("axios");
 const mqtt = require("mqtt");
+const fs = require("fs");
 const logger = require("simple-node-logger").createSimpleLogger();
 const options = require("/data/options.json");
 
@@ -23,12 +24,20 @@ class EasyrollBlind {
     }
 
     mqttClient() {
-        const client = mqtt.connect({
+        const mqttOptions = {
             host: options.mqtt[0].server,
             port: options.mqtt[0].port,
-            username: options.mqtt[0].user || null,
-            password: options.mqtt[0].passwd || null,
-        });
+            username: options.mqtt[0].user,
+            password: options.mqtt[0].passwd,
+        }
+        if (options.mqtt_ssl) {
+            mqttOptions.protocol = 'mqtts';
+            mqttOptions.ca = [fs.readFileSync(options.mqtt_ssl_certificate[0].ca_path)];
+            mqttOptions.cert = fs.readFileSync(options.mqtt_ssl_certificate[0].cert_path);
+            mqttOptions.key = fs.readFileSync(options.mqtt_ssl_certificate[0].key_path);
+            mqttOptions.rejectUnauthorized = true;
+        }
+        const client = mqtt.connect(mqttOptions);
         logger.info("initializing MQTT...");
 
         client.on("connect", () => {
