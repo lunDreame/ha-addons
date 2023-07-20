@@ -26,6 +26,10 @@ mqtt: []
 scan_interval: 900
 ```
 
+### Option: `mqtt_ssl_certificate` (selective)
+
+Enable mqtt ssl security authentication if required. Section *mqtt_ssl_certificate is required.
+
 ### Option: `blind` (essential)
 
 Enter addresses for easy roll blinds you want to connect to Type "- 'ip address'" as many blinds as you want
@@ -47,6 +51,17 @@ mqtt:
     port: 1883
     user: user
     passwd: passwd
+```
+
+### Option: `mqtt_ssl_certificate` (selective)
+
+Enter the path of mqtt ssl certificates in ca / cert / key. Modify the predefined route according to your environment
+
+```yaml
+mqtt_ssl_certificate:
+  - ca_path: /share/easyroll_blind/ca.crt
+    cert_path: /share/easyroll_blind/client.crt
+    key_path: /share/easyroll_blind/client.key
 ```
 
 ### Option: `scan_interval` [unit. minute]
