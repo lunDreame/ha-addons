@@ -1,4 +1,4 @@
-FROM node:18-alpine
+FROM alpine 
 
 ENV LANG C.UTF-8
 
