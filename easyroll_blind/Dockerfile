@@ -2,7 +2,7 @@ FROM node:18-alpine
 
 ENV LANG C.UTF-8
 
-COPY easyroll_blind.js run.sh package.json /
+COPY smart_blind.js run.sh package.json /
 
 RUN npm install 
 RUN chmod a+x /run.sh
