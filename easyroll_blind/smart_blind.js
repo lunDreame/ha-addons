@@ -18,8 +18,9 @@ class SmartBlind {
         this.mqttClient = this.mqttClient();
         this.mqttConnected = false;
         this.mqttPreviousState = {};
+        this.mqttStateDict = [];
+        this.blindStateCount = 0;
         this.blindStateInterval = null;
-        this.blindStateFuncCount = 0;
         this.blindPollInterval = null;
     }
 
@@ -81,11 +82,10 @@ class SmartBlind {
 
     async requestSmartBlindState() {
         const makeRequest = async (url, smartBlindId) => {
-            this.blindStateFuncCount++;
             try {
                 const response = await axios.get(url);
 
-                this.handleResponse(this.blindStateFuncCount, response.data, smartBlindId);
+                this.handleResponse(this.blindStateCount++, response.data, smartBlindId);
             } catch (error) {
                 logger.error(`The smart blind seems to be offline. Please check the blinds [${error}]`);
             };
@@ -155,7 +155,7 @@ class SmartBlind {
                 smartBlindState.position === (target === 'OPEN' ? 0 : 100) ||
                 target === 'STOP'
             ) {
-                clearInterval(this.blindPollInterval);
+                this.clearBlindPollInterval();
             }
         } catch (error) {
             logger.error(`Failed to polling smart blind: ${smartBlindId} [${error}]`);
@@ -171,10 +171,12 @@ class SmartBlind {
                 return;
             }
 
-            if (target) {
+            if (target /* MEMORY Command Exception */) {
                 this.blindPollInterval = setInterval(async () => {
                     await this.requestSmartBlindPoll(url.replace('action', 'lstinfo'), smartBlindId, target);
                 }, 1000);
+
+                this.clearBlindPollInterval = () => { clearInterval(this.blindPollInterval); };
             }
         } catch (error) {
             logger.error(`Failed to ${url.body.mode === 'general' ? 'general operation command' : 'percent move command'} smart blind: ${smartBlindId} [${error}]`);
