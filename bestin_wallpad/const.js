@@ -92,11 +92,22 @@ const V2ELEVATORCMD = {
     }
 };
 
+const HEMSELEM = ["electric", "heat", "hotwater", "gas", "water"];
+
+const HEMSMAP = {
+    "electric": [8, 12],
+    "heat": [0, 0],
+    "hotwater": [0, 0],
+    "gas": [32, 35],
+    "water": [17, 19]
+};
+
 const VENTTEMP = {
     "low": 0x01,
     "medium": 0x02,
     "high": 0x03
 };
+
 const VENTTEMPI = {
     0x01: "low",
     0x02: "medium",
@@ -120,17 +131,18 @@ const DISCOVERY_DEVICE = {
 const DISCOVERY_PAYLOAD = {
     "light": [{
         "_intg": "light",
-        "~": "{prefix}/light/{room}/{index}",
-        "name": "{prefix}_light_{room}_{index}",
+        "~": "{0}/light/{1}/{2}",
+        "name": "{0}_light_{1}_{2}",
         "cmd_t": "~/command",
         "stat_t": "~/state",
         "pl_on": "on",
         "pl_off": "off",
+        "ret": true,
     }],
     "lightDimming": [{
         "_intg": "light",
-        "~": "{prefix}/light/{room}",
-        "name": "{prefix}_light_{room}_1",
+        "~": "{0}/light/{1}",
+        "name": "{0}_light_{1}_1",
         "cmd_t": "~/switch1/command",
         "stat_t": "~/switch1/state",
         "bri_scl": 10,
@@ -140,39 +152,35 @@ const DISCOVERY_PAYLOAD = {
         "clr_temp_stat_t": "~/color/state",
         "pl_on": "on",
         "pl_off": "off",
-    }],
-    "lightCutoff": [{
-        "_intg": "button",
-        "~": "{prefix}/light/all/cutoff",
-        "name": "{prefix}_lightbreak",
-        "cmd_t": "~/command",
-        "icon": "mdi:lightbulb-group-off"
+        "ret": true,
     }],
     "outlet": [{
         "_intg": "",
-        "~": "{prefix}/outlet/{room}/{index}",
-        "name": "{prefix}_outlet_{room}_{index}",
+        "~": "{0}/outlet/{1}/{2}",
+        "name": "{0}_outlet_{1}_{2}",
         "cmd_t": "~/command",
         "stat_t": "~/state",
         "pl_on": "on",
         "pl_off": "off",
         "icon": "",
-        "unit_of_meas": "W"
+        "unit_of_meas": "W",
+        "ret": true,
     }],
     "gas": [{
         "_intg": "",
-        "~": "{prefix}/gas/{room}/{index}",
-        "name": "{prefix}_gas_{index}",
+        "~": "{0}/gas/{1}/{2}",
+        "name": "{0}_gas_{2}",
         "cmd_t": "~/command",
         "stat_t": "~/state",
         "pl_on": "on",
         "pl_off": "off",
-        "icon": "mdi:gas-cylinder"
+        "icon": "mdi:gas-cylinder",
+        "ret": true,
     }],
     "fan": [{
         "_intg": "fan",
-        "~": "{prefix}/fan/{room}",
-        "name": "{prefix}_fan",
+        "~": "{0}/fan/{1}",
+        "name": "{0}_fan",
         "cmd_t": "~/power/command",
         "stat_t": "~/power/state",
         "pr_mode_cmd_t": "~/preset/command",
@@ -180,11 +188,12 @@ const DISCOVERY_PAYLOAD = {
         "pr_modes": ["low", "medium", "high", "nature"],
         "pl_on": "on",
         "pl_off": "off",
+        "ret": true,
     }],
     "thermostat": [{
         "_intg": "climate",
-        "~": "{prefix}/thermostat/{room}",
-        "name": "{prefix}_thermostat_{room}",
+        "~": "{0}/thermostat/{1}",
+        "name": "{0}_thermostat_{1}",
         "mode_cmd_t": "~/power/command",
         "mode_stat_t": "~/power/state",
         "temp_cmd_t": "~/target/command",
@@ -194,35 +203,65 @@ const DISCOVERY_PAYLOAD = {
         "min_temp": 5,
         "max_temp": 40,
         "temp_step": 0.5,
+        "ret": true,
     }],
     "energy": [{
         "_intg": "sensor",
-        "~": "{prefix}/energy/{room}/{index}",
-        "name": "{prefix}_{room}_{index}_consumption",
+        "~": "{0}/energy/{1}/{2}",
+        "name": "{0}_{1}_{2}_consumption",
         "stat_t": "~/state",
-        "unit_of_meas": ""
+        "unit_of_meas": "",
     }],
     "doorlock": [{
         "_intg": "",
-        "~": "{prefix}/doorlock/{room}/{index}",
-        "name": "{prefix}_doorlock",
+        "~": "{0}/doorlock/{1}/{2}",
+        "name": "{0}_doorlock",
         "cmd_t": "~/command",
         "stat_t": "~/state",
         "pl_on": "on",
         "pl_off": "off",
-        "icon": "mdi:lock"
+        "icon": "mdi:lock",
+        "ret": true,
     }],
     "elevator": [{
         "_intg": "",
-        "~": "{prefix}/elevator/{room}/{index}",
-        "name": "{prefix}_ev{index}_srv{room}",
+        "~": "{0}/elevator/{1}/{2}",
+        "name": "{0}_ev{2}_srv{1}",
         "cmd_t": "~/command",
         "stat_t": "~/state",
         "pl_on": "on",
         "pl_off": "off",
-        "icon": "mdi:elevator"
+        "icon": "mdi:elevator",
     }]
 };
+
+String.format = function(formatted) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    return formatted.replace(/{(\d+)}/g, function(match, number) { 
+        return typeof args[number] != 'undefined' ? args[number] : match;
+    });
+}
+
+function recursiveFormatWithArgs(obj, ...args) {
+    const newObj = {};
+
+    Object.keys(obj).forEach(key => {
+        const val = obj[key];
+        if (typeof val === "object") {
+            newObj[key] = recursiveFormatWithArgs(val, ...args);
+        } else if (typeof val === "string") {
+            newObj[key] = val.replace(/\{(\d+)\}/g, (match, p1) => args[p1]);
+        } else {
+            newObj[key] = val;
+        }
+    });
+
+    return newObj;
+}
+
+function deepCopyObject(obj) {
+    return JSON.parse(JSON.stringify(obj));
+}
 
 module.exports = {
     V1LOGIN,
@@ -233,9 +272,16 @@ module.exports = {
     V2LIGHTCMD,
     V2SLIGHTCMD,
     V2ELEVATORCMD,
+
+    HEMSELEM,
+    HEMSMAP,
     VENTTEMP,
     VENTTEMPI,
     ONOFFDEV,
     DISCOVERY_DEVICE,
-    DISCOVERY_PAYLOAD
+    DISCOVERY_PAYLOAD,
+
+    format: String.format,
+    deepCopyObject,
+    recursiveFormatWithArgs
 };
