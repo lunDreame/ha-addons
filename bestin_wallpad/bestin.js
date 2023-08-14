@@ -440,7 +440,7 @@ class BestinRS485 {
             return packets;
         }
 
-        const conditionBytes = [0x12, 0x21, 0x22, 0x23, 0x24, 0x25];
+        const conditionBytes = [0x31, 0x41, 0x42, 0xD1];
         const packetStartIndexes = findPacketStartIndexes(data, separator);
         const extractedPackets = extractPackets(data, packetStartIndexes, conditionBytes);
 
