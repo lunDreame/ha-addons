@@ -139,6 +139,7 @@
 ### `server`
 * scan_interval
   * 서버에서 상태 정보를 가져오는 주기(단위 second)
+  * 0으로 설정하면 서버 상태를 업데이트 하지 않습니다.
   #### __Bestin 1.0__
   * username / password
     * i-parklife의 id/passwd 입력해주세요.
