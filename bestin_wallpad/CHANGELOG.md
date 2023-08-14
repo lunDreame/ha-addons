@@ -1,5 +1,10 @@
 ## 수정 내역
 
+## 1.7.3
+* CustomParser 클래스 제거
+* All 명령 제거
+* code refactoring
+  
 ## 1.7.2
 * Mqtt Discovery 이름포맷 오류수정
 * eletric 오타수정
