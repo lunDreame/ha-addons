@@ -179,10 +179,10 @@ const MSG_INFO = [
             for (const h of HEMSELEM) {
                 let total = parseInt(buf.slice(HEMSMAP[h][0], HEMSMAP[h][1]).toString('hex'));
                 let realt = parseInt(buf.slice(i, i + 2).toString('hex'));
-                index += 8;
+                i += 8;
 
-                props.push({ device: 'energy', room: key, name: 'total', value: key === "electric" ? (total / 100).toFixed(1) : (total / 10) });
-                props.push({ device: 'energy', room: key, name: 'realt', value: realt });
+                props.push({ device: 'energy', room: h, name: 'total', value: h === "electric" ? (total / 100).toFixed(1) : (total / 10) });
+                props.push({ device: 'energy', room: h, name: 'realt', value: realt });
             }
             return props;
         }
@@ -261,12 +261,14 @@ class BestinRS485 {
         if (topics[0] !== options.mqtt.prefix) {
             return;
         }
+        logger.info(`recv. message: ${topic} = ${value}`);
 
         if (options.server_enable) {
             json = JSON.parse(fs.readFileSync('./session.json'));
+        } else {
+            logger.info('The server is not active!');
+            return;
         }
-
-        logger.info(`recv. message: ${topic} = ${value}`);
 
         if (topics[2] === "0" || topics[1] === "elevator") {
             this.serverCommand(topics, value, json);
@@ -463,7 +465,16 @@ class BestinRS485 {
                 currentIndex = index + 1;
             }
             return indexes;
-        }
+        };
+
+        const packetLength = (data, index, length = 0) => {
+            if (data[index + 1] === 0x60 || ['3100', '3180'].includes(data.slice(index + 1, index + 3).toString('hex'))) {
+                length = 10;
+            } else {
+                length = parseInt(data.slice(index + 2, index + 3).toString('hex'), 16);
+            }
+            return length;
+        };
 
         const extractPackets = (data, indexes, conditionBytes) => {
             const packets = [];
@@ -474,25 +485,28 @@ class BestinRS485 {
                     conditionIndex + conditionBytes.length <= data.length &&
                     conditionBytes.some(byte => byte === data[conditionIndex])
                 ) {
-                    const lengthBytes = data.slice(index, conditionIndex + 2).slice(-1);
-                    const packetLength = data[conditionIndex] === 0x28 ? parseInt(lengthBytes.toString('hex'), 16) : 10;
-                    const packetData = data.slice(index, index + packetLength);
+                    const packetData = data.slice(index, index + packetLength(data, index));
                     packets.push(packetData);
                 }
             }
             return packets;
         }
 
-        const conditionBytes = [0x28, 0x31, 0x41, 0x61];
+        const conditionBytes = [0x28, 0x31, 0x41, 0x61, 0xD1, 0xB1];
         const packetStartIndexes = findPacketStartIndexes(data, separator);
         const extractedPackets = extractPackets(data, packetStartIndexes, conditionBytes);
 
         for (const packet of extractedPackets) {
+            if (packet.length <= 2) {
+                return; /** broken Packets */
+            }
             this.handlePacket(packet);
         }
     }
 
+
     handlePacket(packet) {
+        //console.log('recive packet:', packet.toString('hex'))
         this.lastReceivedTimestamp = new Date();
 
         if (packet[0] === 0x02) {
@@ -1003,7 +1017,7 @@ class BestinRS485 {
                 url = recursiveFormatWithArgs(V2LIGHTCMD, json.url, unit.slice(-1), unit, state, json['access-token']);
             }
         }
-        
+
         return deepCopyObject(url);
     }
 
