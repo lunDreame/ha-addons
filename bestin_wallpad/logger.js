@@ -1,6 +1,6 @@
 const winston = require('winston');
 const { combine, timestamp, printf } = winston.format;
-const { to_file, level } = require('./config.json').options.log
+const { to_file, level } = require('/data/options.json').log;
 
 /** Log Output Format */ 
 const format = winston.format.combine(
