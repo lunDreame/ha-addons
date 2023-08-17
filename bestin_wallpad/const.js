@@ -94,6 +94,19 @@ const V2ELEVATORCMD = {
 
 const HEMSELEM = ["electric", "heat", "hotwater", "gas", "water"];
 
+const HEMSUNIT = {
+    "electric_total": ["kWh", "energy", 100, 1],
+    "electric_realt": ["W", "power", "", ""],
+    "heat_total": ["m³", "", 10, ""],
+    "heat_realt": ["m³/h", "", "", ""],
+    "hotwater_total": ["m³", "", 10, ""],
+    "hotwater_realt": ["m³/h", "", "", ""],
+    "gas_total": ["m³", "gas", 10, ""],
+    "gas_realt": ["m³/h", "", "", ""],
+    "water_total": ["m³", "water", 10, ""],
+    "water_realt": ["m³/h", "", "", ""],
+};
+
 const HEMSMAP = {
     "electric": [8, 12],
     "heat": [0, 0],
@@ -114,12 +127,6 @@ const VENTTEMPI = {
     0x03: "high"
 };
 
-const ONOFFDEV = {
-    "gas": "off",
-    "doorlock": "on",
-    "lightbatch": "on"
-};
-
 const DISCOVERY_DEVICE = {
     "ids": ["bestin_wallpad"],
     "name": "bestin_wallpad",
@@ -135,24 +142,20 @@ const DISCOVERY_PAYLOAD = {
         "name": "{0}_light_{1}_{2}",
         "cmd_t": "~/command",
         "stat_t": "~/state",
-        "pl_on": "on",
-        "pl_off": "off",
-        "ret": true,
+        //"ret": true,
     }],
-    "lightDimming": [{
+    "slight": [{
         "_intg": "light",
-        "~": "{0}/light/{1}",
-        "name": "{0}_light_{1}_1",
+        "~": "{0}/slight/0",
+        "name": "{0}_slight_0_1",
         "cmd_t": "~/switch1/command",
         "stat_t": "~/switch1/state",
         "bri_scl": 10,
-        "bri_cmd_t": "~/dimming/command",
-        "bri_stat_t": "~/dimming/state",
-        "clr_temp_cmd_t": "~/color/command",
-        "clr_temp_stat_t": "~/color/state",
-        "pl_on": "on",
-        "pl_off": "off",
-        "ret": true,
+        "bri_cmd_t": "~/brightness/command",
+        "bri_stat_t": "~/brightness/state",
+        "clr_temp_cmd_t": "~/colorTemp/command",
+        "clr_temp_stat_t": "~/colorTemp/state",
+        //"ret": true,
     }],
     "outlet": [{
         "_intg": "",
@@ -160,22 +163,19 @@ const DISCOVERY_PAYLOAD = {
         "name": "{0}_outlet_{1}_{2}",
         "cmd_t": "~/command",
         "stat_t": "~/state",
-        "pl_on": "on",
-        "pl_off": "off",
         "icon": "",
         "unit_of_meas": "W",
-        "ret": true,
+        "dev_cla": "power",
+        //"ret": true,
     }],
     "gas": [{
-        "_intg": "",
+        "_intg": "switch",
         "~": "{0}/gas/{1}/{2}",
-        "name": "{0}_gas_{2}",
+        "name": "{0}_gas",
         "cmd_t": "~/command",
         "stat_t": "~/state",
-        "pl_on": "on",
-        "pl_off": "off",
         "icon": "mdi:gas-cylinder",
-        "ret": true,
+        //"ret": true,
     }],
     "fan": [{
         "_intg": "fan",
@@ -186,9 +186,7 @@ const DISCOVERY_PAYLOAD = {
         "pr_mode_cmd_t": "~/preset/command",
         "pr_mode_stat_t": "~/preset/state",
         "pr_modes": ["low", "medium", "high", "nature"],
-        "pl_on": "on",
-        "pl_off": "off",
-        "ret": true,
+        //"ret": true,
     }],
     "thermostat": [{
         "_intg": "climate",
@@ -203,7 +201,7 @@ const DISCOVERY_PAYLOAD = {
         "min_temp": 5,
         "max_temp": 40,
         "temp_step": 0.5,
-        "ret": true,
+        //"ret": true,
     }],
     "energy": [{
         "_intg": "sensor",
@@ -212,32 +210,19 @@ const DISCOVERY_PAYLOAD = {
         "stat_t": "~/state",
         "unit_of_meas": "",
     }],
-    "doorlock": [{
-        "_intg": "",
-        "~": "{0}/doorlock/{1}/{2}",
-        "name": "{0}_doorlock",
-        "cmd_t": "~/command",
-        "stat_t": "~/state",
-        "pl_on": "on",
-        "pl_off": "off",
-        "icon": "mdi:lock",
-        "ret": true,
-    }],
     "elevator": [{
         "_intg": "",
         "~": "{0}/elevator/{1}/{2}",
         "name": "{0}_ev{2}_srv{1}",
         "cmd_t": "~/command",
         "stat_t": "~/state",
-        "pl_on": "on",
-        "pl_off": "off",
         "icon": "mdi:elevator",
     }]
 };
 
-String.format = function(formatted) {
+String.format = function (formatted) {
     var args = Array.prototype.slice.call(arguments, 1);
-    return formatted.replace(/{(\d+)}/g, function(match, number) { 
+    return formatted.replace(/{(\d+)}/g, function (match, number) {
         return typeof args[number] != 'undefined' ? args[number] : match;
     });
 }
@@ -273,11 +258,11 @@ module.exports = {
     V2SLIGHTCMD,
     V2ELEVATORCMD,
 
+    HEMSUNIT,
     HEMSELEM,
     HEMSMAP,
     VENTTEMP,
     VENTTEMPI,
-    ONOFFDEV,
     DISCOVERY_DEVICE,
     DISCOVERY_PAYLOAD,
 
