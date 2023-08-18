@@ -569,27 +569,28 @@ class BestinRS485 {
 
     updatePropertiesFromMessage(msgInfo, packet, isCommandResponse) {
         if (!(packet ? msgInfo.parseToProperty : msgInfo)) return;
-
         try {
             var parsedProperties = packet ? msgInfo.parseToProperty(packet) : msgInfo;
-            for (const [propertyName, propertyValue] of Object.entries(parsedProperties.value)) {
-                this.updatePropertyValues(parsedProperties.device, parsedProperties.room ?? 0, propertyName, propertyValue, isCommandResponse);
-            }
-        } catch (error) {
-            for (const parsedPropertie of parsedProperties) {
-                for (let [propertyName, propertyValue] of Object.entries(parsedPropertie.value)) {
-
-                    if (parsedPropertie.device === "energy") {
-                        const energyUnit = HEMSUNIT[parsedPropertie.room + '_' + propertyName];
-                        propertyValue = this.convertEnergyValue(energyUnit, propertyValue);
+            if (Array.isArray(parsedProperties)) {
+                for (const parsedPropertie of parsedProperties) {
+                    for (let [propertyName, propertyValue] of Object.entries(parsedPropertie.value)) {
+                        if (parsedPropertie.device === "energy") {
+                            const energyUnit = HEMSUNIT[parsedPropertie.room + '_' + propertyName];
+                            propertyValue = this.convertEnergyValue(energyUnit, propertyValue);
+                        }
+                        this.updatePropertyValues(parsedPropertie.device, parsedPropertie.room ?? 0, propertyName, propertyValue, isCommandResponse);
                     }
-                    this.updatePropertyValues(parsedPropertie.device, parsedPropertie.room ?? 0, propertyName, propertyValue, isCommandResponse);
+                }
+            } else {
+                for (const [propertyName, propertyValue] of Object.entries(parsedProperties.value)) {
+                    this.updatePropertyValues(parsedProperties.device, parsedProperties.room ?? 0, propertyName, propertyValue, isCommandResponse);
                 }
             }
-
+        } catch (error) {
+        // Handle error here
         }
     }
-
+    
     convertEnergyValue(unit, value,) {
         const conversionFactor = unit[2];
         const decimalPlaces = unit[3];
