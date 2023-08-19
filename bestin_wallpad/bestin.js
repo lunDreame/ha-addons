@@ -39,7 +39,7 @@ const {
     recursiveFormatWithArgs
 } = require('./srv/const.js');
 
-const MSG_INFO = [
+const DEVICE_INFO = [
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// COMMAND
 
     // LIGHT
@@ -200,7 +200,7 @@ class BestinRS485 {
 
             this.shouldRegisterSrvEV = options.server_enable && options.server_type === "v2";
             this.hasSmartLighting = options.smart_lighting;
-            this.smartLightingType = options.smart_lighting ? "smartlight" : "livinglight";
+            this.initSessionJsonWrite = false;
         }
     }
 
@@ -252,11 +252,8 @@ class BestinRS485 {
         }
         logger.info(`recv. message: ${topic} = ${value}`);
 
-        if (options.server_enable && this.serverLoginSuccessStatus) {
+        if (options.server_enable && this.initSessionJsonWrite) {
             json = JSON.parse(fs.readFileSync('./session.json'));
-        } else {
-            logger.warn("server is not active or login failed to process successfully");
-            return;
         }
 
         if (topics[2] === "0" || topics[1] === "elevator") {
@@ -266,7 +263,7 @@ class BestinRS485 {
             const { energyPacketTimeStamp, controlPacketTimeStamp } = this;
             const timeStamp = ['light', 'outlet'].includes(device) ? energyPacketTimeStamp : controlPacketTimeStamp;
 
-            this.setCommandProperty(device, room, name, value, timeStamp[1]);
+            this.setCommandProperty(device, room, name, value, timeStamp[1 || 0x00]);
         }
     }
 
@@ -283,21 +280,30 @@ class BestinRS485 {
     }
 
     formatDiscovery(device, room, name) {
-        for (let i = 0; i < DISCOVERY_PAYLOAD[device].length; i++) {
-            let payload = Object.assign({}, DISCOVERY_PAYLOAD[device][i]);
+        const isOutletOrElevator = ['outlet', 'elevator'].includes(device);
 
-            if (['outlet', 'elevator'].includes(device)) {
+        for (const payloadTemplate of DISCOVERY_PAYLOAD[device]) {
+            let payload = { ...payloadTemplate };
+
+            if (isOutletOrElevator) {
                 payload['_intg'] = ['call', 'usage'].includes(name.replace(/\d+/g, '')) ? "switch" : "sensor";
-                payload['icon'] = ['usage'].includes(name.replace(/\d+/g, '')) ? "mdi:lightning-bolt" : "mdi:power-socket-eu";
+
+                if (device === "outlet") {
+                    payload['ic'] = payload['_intg'] === "sensor" ? "mdi:lightning-bolt" : "mdi:power-socket-eu";
+                }
             }
+
             payload['~'] = format(payload['~'], this.mqttPrefix, room, name);
             payload['name'] = format(payload['name'], this.mqttPrefix, room, name.replace(/power|switch/g, ''));
 
             if (device === 'energy') {
-                const hemsUnit = HEMSUNIT[room + '_' + name];
-                payload['unit_of_meas'] = hemsUnit[0];
-                if (hemsUnit[1]) payload['dev_cla'] = hemsUnit[1];
+                const measurementUnit = HEMSUNIT[room + '_' + name];
+
+                payload['unit_of_meas'] = measurementUnit[0];
+                if (measurementUnit[1]) payload['dev_cla'] = measurementUnit[1];
+                if (measurementUnit[2]) payload['val_tpl'] = measurementUnit[2];
             }
+
             this.mqttDiscovery(payload);
         }
     }
@@ -321,7 +327,7 @@ class BestinRS485 {
             checksum = (checksum + 1) & 0xFF;
         }
         if (checksum !== packet[packet.length - 1]) {
-            //logger.error(`checksum error: ${packet.toString('hex')}, ${checksum.toString(16)}`);
+            // logger.error(`checksum error: ${packet.toString('hex')}, ${checksum.toString(16)}`);
 
             /** frequently annotate packets that are broken in the middle */
             return false;
@@ -434,7 +440,9 @@ class BestinRS485 {
         const extractedPackets = extractPackets(data, packetStartIndexes, conditionBytes);
 
         for (const packet of extractedPackets) {
-            this.handlePacket(packet, this.energyPacketTimeStamp);
+            if (this.verifyChecksum(packet)) {
+                this.handlePacket(packet, this.energyPacketTimeStamp);
+            }
         }
     }
 
@@ -486,7 +494,9 @@ class BestinRS485 {
         const extractedPackets = extractPackets(data, packetStartIndexes, conditionBytes);
 
         for (const packet of extractedPackets) {
-            this.handlePacket(packet, this.controlPacketTimeStamp);
+            if (this.verifyChecksum(packet)) {
+                this.handlePacket(packet, this.controlPacketTimeStamp);
+            }
         }
     }
 
@@ -497,8 +507,6 @@ class BestinRS485 {
         if (packet[0] === 0x02 && packet[stamp[0]] === stamp[1]) {
             this.synchronizedTime = this.lastReceivedTimestamp;
         }
-        const isValid = this.verifyChecksum(packet);
-        if (!isValid) return;
 
         const receivedMsg = this.findOrCreateReceivedMsg(packet);
         receivedMsg.count++;
@@ -530,17 +538,15 @@ class BestinRS485 {
         const actualLength = packet.length;
         const actualHeader = packet.subarray(0, expectLength).toString('hex').toUpperCase();
 
-        const validMsgInfos = MSG_INFO.filter(({ header, length }) => {
-            if (header === actualHeader && length === actualLength) return actualHeader;
+        const validMsgInfos = DEVICE_INFO.filter(({ header, length, parseToProperty }) => {
+            if (header === actualHeader && length === actualLength && parseToProperty) return actualHeader;
         });
 
-        const isValid = this.verifyChecksum(packet);
         const receivedMsg = {
             code,
             codeHex,
             count: 0,
             validMsgInfos,
-            isValid, // checksum
         };
         receivedMessages.push(receivedMsg);
         return receivedMsg;
@@ -568,35 +574,24 @@ class BestinRS485 {
     }
 
     updatePropertiesFromMessage(msgInfo, packet, isCommandResponse) {
-        if (!(packet ? msgInfo.parseToProperty : msgInfo)) return;
-        try {
-            var parsedProperties = packet ? msgInfo.parseToProperty(packet) : msgInfo;
-            if (Array.isArray(parsedProperties)) {
-                for (const parsedPropertie of parsedProperties) {
-                    for (let [propertyName, propertyValue] of Object.entries(parsedPropertie.value)) {
-                        if (parsedPropertie.device === "energy") {
-                            const energyUnit = HEMSUNIT[parsedPropertie.room + '_' + propertyName];
-                            propertyValue = this.convertEnergyValue(energyUnit, propertyValue);
-                        }
-                        this.updatePropertyValues(parsedPropertie.device, parsedPropertie.room ?? 0, propertyName, propertyValue, isCommandResponse);
-                    }
-                }
-            } else {
-                for (const [propertyName, propertyValue] of Object.entries(parsedProperties.value)) {
-                    this.updatePropertyValues(parsedProperties.device, parsedProperties.room ?? 0, propertyName, propertyValue, isCommandResponse);
-                }
+        if (Object.keys(msgInfo).length === 0) return;
+        const parsedProperties = (msgInfo.parseToProperty && packet) ? msgInfo.parseToProperty(packet) : msgInfo;
+
+        if (Array.isArray(parsedProperties)) {
+            for (const parsedProperty of parsedProperties) {
+                const { device, room = 0, value } = parsedProperty;
+                this.updateProperties(device, room, value, isCommandResponse);
             }
-        } catch (error) {
-        // Handle error here
+        } else {
+            const { device, room = 0, value } = parsedProperties;
+            this.updateProperties(device, room, value, isCommandResponse);
         }
     }
-    
-    convertEnergyValue(unit, value,) {
-        const conversionFactor = unit[2];
-        const decimalPlaces = unit[3];
 
-        const convertedValue = value / conversionFactor;
-        return parseFloat(decimalPlaces ? convertedValue.toFixed(decimalPlaces) : convertedValue.toString());
+    updateProperties(device, room, properties, isCommandResponse) {
+        for (const [propertyName, propertyValue] of Object.entries(properties)) {
+            this.updatePropertyValues(device, room, propertyName, propertyValue, isCommandResponse);
+        }
     }
 
     addCommandToQueue(cmdHex, device, room, name, value, callback) {
@@ -671,7 +666,7 @@ class BestinRS485 {
     }
 
     setCommandProperty(device, room, name, value, timeStamp, callback) {
-        const deviceInfo = MSG_INFO.find(entry => entry.setPropertyToMsg && entry.device === device);
+        const deviceInfo = DEVICE_INFO.find(entry => entry.setPropertyToMsg && entry.device === device);
 
         if (!deviceInfo) {
             logger.warn(`Unknown device:    ${device}`);
@@ -826,16 +821,20 @@ class BestinRS485 {
 
         try {
             fs.writeFileSync('./session.json', JSON.stringify(data));
-            if (session === "login") logger.info(`session.json file write successful!`);
+            if (session === "login") {
+                logger.info(`session.json file write successful!`);
+                this.initSessionJsonWrite = true;
+            }
         } catch (error) {
             logger.error(`session.json file write fail. [${error}]`);
         }
 
         const json = JSON.parse(fs.readFileSync('./session.json'));
+        const lightingType = this.hasSmartLighting ? "smartlight" : "livinglight";
 
         const statusUrl = isV1
             ? recursiveFormatWithArgs(V1LIGHTSTATUS, options.server.address, json.phpsessid, json.userid, json.username)
-            : recursiveFormatWithArgs(V2LIGHTSTATUS, json.url, this.smartLightingType, json['access-token']);
+            : recursiveFormatWithArgs(V2LIGHTSTATUS, json.url, lightingType, json['access-token']);
 
         this.getServerLightStatus(statusUrl, type, 'state');
 
@@ -952,39 +951,44 @@ class BestinRS485 {
         }
     }
 
-    async getServerEVStatus(json, response) {
-        let deviceProps = {};
-        const self = this;
-
+    getServerEVStatus(json, response, address,) {
         const es = new EventSource(`${json.url}/v2/admin/elevators/sse`);
-        es.addEventListener('moveinfo', handleMoveInfo);
+
+        const handleEventInfo = (event,) => {
+            const data = JSON.parse(event.data);
+            if (data.address !== address) return;
+
+            if (data.move_info) {
+                this.elevatorEventArray = [data.move_info.Serial, data.move_info.MoveDir || '대기', data.move_info.Floor || '대기 층'];
+                this.elevatorCallSuccess = (response.result === "ok") ? "OFF" : "ON";
+                var deviceProps = {
+                    device: 'elevator', room: this.elevatorEventArray[0],
+                    value: { 'call': this.elevatorCallSuccess, 'direction': this.elevatorEventArray[1], 'floor': this.elevatorEventArray[2] }
+                };
+            } else {
+                deviceProps = {
+                    device: 'elevator', room: this.elevatorEventArray[0],
+                    value: { 'direction': '도착', 'floor': 'arrived' }
+                };
+                cleaerEventListener();
+            }
+
+            this.updatePropertiesFromMessage(deviceProps);
+        };
+
+        const cleaerEventListener = () => {
+            es.removeEventListener('moveinfo', handleEventInfo);
+            es.removeEventListener('arrived', handleEventInfo);
+            es.close();
+        };
+
+        es.addEventListener('moveinfo', handleEventInfo);
+        es.addEventListener('arrived', handleEventInfo);
 
         es.onerror = (error) => {
             logger.error(`EventSource elevator error occurred: ${error}`);
             es.close();
         };
-
-        function handleMoveInfo(event) {
-            const data = JSON.parse(event.data);
-
-            if (data.address === options.server.address) {
-                deviceProps = {
-                    device: 'elevator', room: String(data.move_info.Serial),
-                    value: { call: response.result === 'ok' ? 'OFF' : 'ON', direction: data.move_info.MoveDir || '대기', floor: data.move_info.Floor || '대기 층' }
-                };
-            }
-            if (data?.move_info === undefined || data?.move_info === null) {
-                cleaerEventListener();
-            }
-
-            self.updatePropertiesFromMessage(deviceProps);
-        }
-
-        function cleaerEventListener() {
-            es.removeEventListener('moveinfo', handleMoveInfo);
-            es.close();
-            logger.warn('elevator has arrived at its destination. terminate the server-sent events connection');
-        }
     }
 
     serverCommand(topic, value, json) {
@@ -1068,7 +1072,7 @@ class BestinRS485 {
             //logger.info(`server ev command  <=== ${JSON.stringify(response.data)}`);
             if (response.data.result === 'ok') {
                 logger.info('server elevator command request successful!');
-                this.getServerEVStatus(json, response.data);
+                this.getServerEVStatus(json, response.data, url.data.address);
             } else {
                 logger.info('server elevator command request fail!');
             }
