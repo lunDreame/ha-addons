@@ -95,24 +95,24 @@ const V2ELEVATORCMD = {
 const HEMSELEM = ["electric", "heat", "hotwater", "gas", "water"];
 
 const HEMSUNIT = {
-    "electric_total": ["kWh", "energy", 100, 1],
-    "electric_realt": ["W", "power", "", ""],
-    "heat_total": ["m³", "", 10, ""],
-    "heat_realt": ["m³/h", "", "", ""],
-    "hotwater_total": ["m³", "", 10, ""],
-    "hotwater_realt": ["m³/h", "", "", ""],
-    "gas_total": ["m³", "gas", 10, ""],
-    "gas_realt": ["m³/h", "", "", ""],
-    "water_total": ["m³", "water", 10, ""],
-    "water_realt": ["m³/h", "", "", ""],
+    "electric_total": ["kWh", "energy", "{{ (value | float / 100) }}"],
+    "electric_realt": ["W", "power"],
+    "heat_total": ["m³", "", "{{ (value | float / 1000) | round(2) }}"],
+    "heat_realt": ["m³/h", ""],
+    "hotwater_total": ["m³", "", "{{ (value | float / 1000) | round(2) }}"],
+    "hotwater_realt": ["m³/h", ""],
+    "gas_total": ["m³", "gas", "{{ (value | float / 1000) | round(2) }}"],
+    "gas_realt": ["m³/h", ""],
+    "water_total": ["m³", "water", "{{ (value | float / 1000) | round(2) }}"],
+    "water_realt": ["m³/h", ""],
 };
 
 const HEMSMAP = {
     "electric": [8, 12],
-    "heat": [0, 0],
-    "hotwater": [0, 0],
-    "gas": [32, 35],
-    "water": [17, 19]
+    "heat": [40, 44],
+    "hotwater": [24, 28],
+    "gas": [32, 36],
+    "water": [17, 20]
 };
 
 const VENTTEMP = {
@@ -142,7 +142,6 @@ const DISCOVERY_PAYLOAD = {
         "name": "{0}_light_{1}_{2}",
         "cmd_t": "~/command",
         "stat_t": "~/state",
-        //"ret": true,
     }],
     "slight": [{
         "_intg": "light",
@@ -155,7 +154,6 @@ const DISCOVERY_PAYLOAD = {
         "bri_stat_t": "~/brightness/state",
         "clr_temp_cmd_t": "~/colorTemp/command",
         "clr_temp_stat_t": "~/colorTemp/state",
-        //"ret": true,
     }],
     "outlet": [{
         "_intg": "",
@@ -163,10 +161,9 @@ const DISCOVERY_PAYLOAD = {
         "name": "{0}_outlet_{1}_{2}",
         "cmd_t": "~/command",
         "stat_t": "~/state",
-        "icon": "",
+        "ic": "",
         "unit_of_meas": "W",
         "dev_cla": "power",
-        //"ret": true,
     }],
     "gas": [{
         "_intg": "switch",
@@ -174,8 +171,7 @@ const DISCOVERY_PAYLOAD = {
         "name": "{0}_gas",
         "cmd_t": "~/command",
         "stat_t": "~/state",
-        "icon": "mdi:gas-cylinder",
-        //"ret": true,
+        "ic": "mdi:gas-cylinder",
     }],
     "fan": [{
         "_intg": "fan",
@@ -186,7 +182,6 @@ const DISCOVERY_PAYLOAD = {
         "pr_mode_cmd_t": "~/preset/command",
         "pr_mode_stat_t": "~/preset/state",
         "pr_modes": ["low", "medium", "high", "nature"],
-        //"ret": true,
     }],
     "thermostat": [{
         "_intg": "climate",
@@ -201,7 +196,6 @@ const DISCOVERY_PAYLOAD = {
         "min_temp": 5,
         "max_temp": 40,
         "temp_step": 0.5,
-        //"ret": true,
     }],
     "energy": [{
         "_intg": "sensor",
@@ -216,7 +210,7 @@ const DISCOVERY_PAYLOAD = {
         "name": "{0}_ev{2}_srv{1}",
         "cmd_t": "~/command",
         "stat_t": "~/state",
-        "icon": "mdi:elevator",
+        "ic": "mdi:elevator",
     }]
 };
 
