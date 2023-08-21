@@ -115,17 +115,25 @@ const HEMSMAP = {
     "water": [17, 20]
 };
 
-const VENTTEMP = {
-    "low": 0x01,
-    "medium": 0x02,
-    "high": 0x03
-};
+function findVentTempValue(val) {
+    if (val <= 33) {
+        return 0x01;
+    } else if (val <= 66) {
+        return 0x02;
+    } else {
+        return 0x03;
+    }
+}
 
-const VENTTEMPI = {
-    0x01: "low",
-    0x02: "medium",
-    0x03: "high"
-};
+function ventPercentage(byte) {
+    if (byte === 0x01) {
+        return 33;
+    } else if (byte === 0x02) {
+        return 66;
+    } else {
+        return 100;
+    }
+}
 
 const DISCOVERY_DEVICE = {
     "ids": ["bestin_wallpad"],
@@ -162,8 +170,6 @@ const DISCOVERY_PAYLOAD = {
         "cmd_t": "~/command",
         "stat_t": "~/state",
         "ic": "",
-        "unit_of_meas": "W",
-        "dev_cla": "power",
     }],
     "gas": [{
         "_intg": "switch",
@@ -179,9 +185,8 @@ const DISCOVERY_PAYLOAD = {
         "name": "{0}_fan",
         "cmd_t": "~/power/command",
         "stat_t": "~/power/state",
-        "pr_mode_cmd_t": "~/preset/command",
-        "pr_mode_stat_t": "~/preset/state",
-        "pr_modes": ["low", "medium", "high", "nature"],
+        "pct_cmd_t": "~/percent/command",
+        "pct_stat_t": "~/percent/state",
     }],
     "thermostat": [{
         "_intg": "climate",
@@ -207,7 +212,7 @@ const DISCOVERY_PAYLOAD = {
     "elevator": [{
         "_intg": "",
         "~": "{0}/elevator/{1}/{2}",
-        "name": "{0}_ev{2}_srv{1}",
+        "name": "{0}_ev{2}_{1}",
         "cmd_t": "~/command",
         "stat_t": "~/state",
         "ic": "mdi:elevator",
@@ -255,12 +260,12 @@ module.exports = {
     HEMSUNIT,
     HEMSELEM,
     HEMSMAP,
-    VENTTEMP,
-    VENTTEMPI,
     DISCOVERY_DEVICE,
     DISCOVERY_PAYLOAD,
 
     format: String.format,
     deepCopyObject,
-    recursiveFormatWithArgs
+    recursiveFormatWithArgs,
+    findVentTempValue,
+    ventPercentage
 };
