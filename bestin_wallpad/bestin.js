@@ -18,8 +18,6 @@ const EventSource = require('eventsource');
 const xml2js = require('xml2js');
 
 const {
-    VENTTEMP,
-    VENTTEMPI,
     HEMSELEM,
     HEMSMAP,
     HEMSUNIT,
@@ -36,7 +34,9 @@ const {
     V2ELEVATORCMD,
     format,
     deepCopyObject,
-    recursiveFormatWithArgs
+    recursiveFormatWithArgs,
+    findVentTempValue,
+    ventPercentage
 } = require('./srv/const.js');
 
 const DEVICE_INFO = [
@@ -86,7 +86,7 @@ const DEVICE_INFO = [
         device: 'fan', header: '026100', length: 10, request: 'set',
         setPropertyToMsg: (buf, rom, idx, val) => {
             if (idx === "power") buf[2] = 0x01, buf[5] = (val === "ON" ? 0x01 : 0x00), buf[6] = 0x01;
-            else buf[2] = (val === "nature" ? 0x07 : 0x03), buf[6] = VENTTEMP[v];
+            else buf[2] = 0x03, buf[6] = findVentTempValue(val);
             return buf;
         }
     },
@@ -105,9 +105,9 @@ const DEVICE_INFO = [
     {
         device: 'light', header: '02311E91', length: 30, request: 'ack',
         parseToProperty: (buf) => {
-            let props = {};
+            let props = [];
             for (let i = 0; i < ((buf[5] & 0x0F) === 1 ? 4 : 2); i++) {
-                props = { device: 'light', room: buf[5] & 0x0F, value: { [`power${i + 1}`]: (buf[6] & (1 << i)) ? "ON" : "OFF" } };
+                props.push({ device: 'light', room: buf[5] & 0x0F, value: { [`power${i + 1}`]: (buf[6] & (1 << i)) ? "ON" : "OFF" } });
             }
             return props;
         }
@@ -117,12 +117,12 @@ const DEVICE_INFO = [
     {
         device: 'outlet', header: '02311E91', length: 30, request: 'ack',
         parseToProperty: (buf) => {
-            let props = {};
+            let props = [];
             for (let i = 0; i < ((buf[5] & 0x0F) === 1 ? 3 : 2); i++) {
-                props = {
+                props.push({
                     device: 'outlet', room: buf[5] & 0x0F,
                     value: { [`power${i + 1}`]: (buf[7] & (1 << i)) ? "ON" : "OFF", [`usage${i + 1}`]: (buf[16 * i] << 4 | buf[(16 * i) + 1]) / 10 || 0, 'standby': (buf[7] >> 4 & 1) ? "ON" : "OFF" }
-                };
+                });
             }
             return props;
         }
@@ -144,7 +144,7 @@ const DEVICE_INFO = [
         device: 'fan', header: '026180', length: 10, request: 'ack',
         parseToProperty: (buf) => {
             return {
-                device: 'fan', value: { 'power': (buf[5] ? "ON" : "OFF"), 'preset': buf[5] === 0x11 ? "nature" : VENTTEMPI[buf[6]] }
+                device: 'fan', value: { 'power': (buf[5] ? "ON" : "OFF"), 'percent': ventPercentage(buf[6]) }
             };
         }
     },
@@ -200,7 +200,7 @@ class BestinRS485 {
 
             this.shouldRegisterSrvEV = options.server_enable && options.server_type === "v2";
             this.hasSmartLighting = options.smart_lighting;
-            this.initSessionJsonWrite = false;
+            this.isServerEnabled = options.server_enable;
         }
     }
 
@@ -247,23 +247,54 @@ class BestinRS485 {
         let topics = topic.split('/');
         let value = message.toString();
         let json;
-        if (topics[0] !== options.mqtt.prefix) {
+        if (topics[0] !== this.mqttPrefix) {
             return;
         }
         logger.info(`recv. message: ${topic} = ${value}`);
 
-        if (options.server_enable && this.initSessionJsonWrite) {
-            json = JSON.parse(fs.readFileSync('./session.json'));
+        if (!this.isServerEnabled || !this.checkSessionFile()) return;
+
+        if (this.isServerEnabled && this.checkSessionFile()) {
+            json = this.checkSessionFile();
         }
 
-        if (topics[2] === "0" || topics[1] === "elevator") {
+        if ((topics[2] === "0" && ['light', 'slight'].includes(topics[1])) || topics[1] === "elevator") {
             this.serverCommand(topics, value, json);
         } else {
             const [device, room, name] = topics.slice(1, 4);
             const { energyPacketTimeStamp, controlPacketTimeStamp } = this;
             const timeStamp = ['light', 'outlet'].includes(device) ? energyPacketTimeStamp : controlPacketTimeStamp;
 
-            this.setCommandProperty(device, room, name, value, timeStamp[1 || 0x00]);
+            this.setCommandProperty(device, room, name, value, timeStamp?.[1] || 0x0);
+        }
+    }
+
+    checkSessionFile() {
+        const filePath = './session.json';
+
+        try {
+            if (!fs.existsSync(filePath)) {
+                logger.warn('session.json file does not exist');
+                return false;
+            }
+
+            const fileData = fs.readFileSync(filePath, 'utf-8').trim();
+
+            if (!fileData) {
+                logger.warn('no data in the session.json file.');
+                return false;
+            }
+
+            const jsonData = JSON.parse(fileData);
+
+            if (Object.keys(jsonData).length === 0) {
+                logger.warn('session.json file empty JSON object');
+                return false;
+            }
+
+            return jsonData;
+        } catch (error) {
+            logger.error(`unable to read file or JSON parsing error: ${error.message}`);
         }
     }
 
@@ -286,10 +317,13 @@ class BestinRS485 {
             let payload = { ...payloadTemplate };
 
             if (isOutletOrElevator) {
-                payload['_intg'] = ['call', 'usage'].includes(name.replace(/\d+/g, '')) ? "switch" : "sensor";
+                const isSwitch = ['call', 'power', 'standby'].includes(name.replace(/\d+/g, ''));
+                const isSensor = !isSwitch;
 
+                payload['_intg'] = isSwitch ? "switch" : "sensor";
                 if (device === "outlet") {
-                    payload['ic'] = payload['_intg'] === "sensor" ? "mdi:lightning-bolt" : "mdi:power-socket-eu";
+                    if (isSensor) { payload['unit_of_meas'] = "W"; payload['dev_cla'] = "power"; }
+                    payload['ic'] = isSensor ? "mdi:lightning-bolt" : "mdi:power-socket-eu";
                 }
             }
 
@@ -823,13 +857,12 @@ class BestinRS485 {
             fs.writeFileSync('./session.json', JSON.stringify(data));
             if (session === "login") {
                 logger.info(`session.json file write successful!`);
-                this.initSessionJsonWrite = true;
             }
         } catch (error) {
-            logger.error(`session.json file write fail. [${error}]`);
+            logger.error(`create session.json file error: ${error.message}`);
         }
 
-        const json = JSON.parse(fs.readFileSync('./session.json'));
+        const json = this.checkSessionFile();
         const lightingType = this.hasSmartLighting ? "smartlight" : "livinglight";
 
         const statusUrl = isV1
@@ -959,7 +992,7 @@ class BestinRS485 {
             if (data.address !== address) return;
 
             if (data.move_info) {
-                this.elevatorEventArray = [data.move_info.Serial, data.move_info.MoveDir || '대기', data.move_info.Floor || '대기 층'];
+                this.elevatorEventArray = [data.move_info.Serial || 0, data.move_info.MoveDir || '대기', data.move_info.Floor || '대기 층'];
                 this.elevatorCallSuccess = (response.result === "ok") ? "OFF" : "ON";
                 var deviceProps = {
                     device: 'elevator', room: this.elevatorEventArray[0],
@@ -992,8 +1025,8 @@ class BestinRS485 {
     }
 
     serverCommand(topic, value, json) {
-        if (['light', 'slight'].includes(topic[1])) {
-            this.serverLightCommand([topic[1], topic[3]], value, options.server_type, json);
+        if (topic[1] === "light" || (topic[1] === "slight" && this.smartLightDataArray?.length > 0)) {
+            this.serverLightCommand(topic[1], topic[3], value, options.server_type, json);
         } else if (topic === "elevator" || topic[1] === "elevator") {
             const evUrl = recursiveFormatWithArgs(V2ELEVATORCMD, json.url, options.server.address, options.server.uuid);
             const msg = "elevator calls through the server are supported only in v2 version!";
@@ -1001,30 +1034,27 @@ class BestinRS485 {
         }
     }
 
-    serverSlightParam(param, unit, state) {
-        const copy = { ...param };
-        if ("switch" === unit.slice(-1)) {
-            copy['state'] = state;
+    slightDataCopy(param, unit, state) {
+        if ("switch" === unit.replace(/\d+/g, '')) {
+            param['state'] = state;
         }
-        if ("dimming" === unit) {
-            copy['dimming'] = state;
+        if ("brightness" === unit) {
+            param['dimming'] = state;
         }
-        if ("color" === unit) {
-            copy['color'] = this.mapColorValueInRange(state, 500, 153, 1, 10);
+        if ("colorTemp" === unit) {
+            param['color'] = this.mapColorValueInRange(state, 500, 153, 1, 10);
         }
-        return copy;
+        return param;
     }
 
-    serverlightCommandManager(unit, state, type, json) {
-        let smartLightDataArray, url = {};
-
+    serverlightCommandManager(stype, unit, state, type, json, url) {
         if (type === 'v1') {
             url = recursiveFormatWithArgs(V1LIGHTCMD, options.server.address, json.phpsessid, json.userid, json.username, unit, state);
         } else {
             if (this.hasSmartLighting) {
-                smartLightDataArray = this.serverSlightParam(this.smartLightDataArray?.find(item => item.unit === unit.slice(-1)), unit, state);
+                const smartLightData = this.slightDataCopy(this.smartLightDataArray?.find(item => item.unit === (stype === 'slight' ? '1' : unit.slice(-1))), unit, state);
 
-                url = recursiveFormatWithArgs(V2SLIGHTCMD, json.url, JSON.stringify(smartLightDataArray), json['access-token']);
+                url = recursiveFormatWithArgs(V2SLIGHTCMD, json.url, JSON.stringify(smartLightData), json['access-token']);
             } else {
                 url = recursiveFormatWithArgs(V2LIGHTCMD, json.url, unit.slice(-1), unit, state, json['access-token']);
             }
@@ -1033,14 +1063,14 @@ class BestinRS485 {
         return deepCopyObject(url);
     }
 
-    async serverLightCommand([lightType, unit], state, type, json) {
-        const url = this.serverlightCommandManager(unit, state, type, json);
+    async serverLightCommand(stype, unit, state, type, json) {
+        const url = this.serverlightCommandManager(stype, unit, state, type, json);
 
         logger.debug(`server lighting command ===> ${JSON.stringify(url)}`);
 
         try {
             const response = await axios(url);
-            const result = this.serverRequestResult(response.data);
+            const result = this.serverRequestResult(type, response.data);
 
             if (result !== "ok") {
                 logger.warn(`failed to server lighting command. Result: ${result}`);
@@ -1049,7 +1079,7 @@ class BestinRS485 {
             //logger.debug(`server lighting command <=== ${JSON.parse(JSON.stringify(response.data))}`);
             logger.info("server livinglight command request successful!");
 
-            const deviceProps = { device: lightType, room: '0', value: { [unit]: state } };
+            const deviceProps = { device: stype, room: '0', value: { [unit]: state } };
 
             this.updatePropertiesFromMessage(deviceProps);
         } catch (error) {
