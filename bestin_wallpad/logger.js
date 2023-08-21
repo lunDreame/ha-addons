@@ -1,8 +1,8 @@
 const winston = require('winston');
 const { combine, timestamp, printf } = winston.format;
-const { to_file, level } = require('/data/options.json').log
+const { to_file, level } = require('/data/options.json').log;
 
-// 로그 출력 포맷
+/** Log Output Format */ 
 const format = winston.format.combine(
     winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
     winston.format.printf(
@@ -10,7 +10,7 @@ const format = winston.format.combine(
     ),
 )
 
-// 파일 저장 설정
+/** File Save Settings */
 const fileTransport = new winston.transports.File({
     filename: `./logs/${new Date().toISOString().slice(0, 10)}.log`,
     maxFiles: 7,
@@ -18,7 +18,7 @@ const fileTransport = new winston.transports.File({
     tailable: true,
 });
 
-// 로그 레벨별 설정
+/** Settings by Log Level */
 const logger = winston.createLogger({
     level: level,
     format: combine(timestamp(), format),
@@ -27,15 +27,16 @@ const logger = winston.createLogger({
     ],
 });
 
-// to_file이 true일 때 파일 저장 설정 추가
+/** Add file save settings when to_file is true */
 if (to_file) {
     logger.add(fileTransport);
 }
 
-// 로그 레벨에 따른 파일 저장 설정
+/** File storage settings based on log level */
 switch (level) {
     case 'silly':
         fileTransport.level = 'silly';
+        break;
     case 'info':
         fileTransport.level = 'info';
         break;
@@ -44,6 +45,9 @@ switch (level) {
         break;
     case 'warn':
         fileTransport.level = 'warn';
+        break;
+    case 'debug':
+        fileTransport.level = 'debug';
         break;
 }
 

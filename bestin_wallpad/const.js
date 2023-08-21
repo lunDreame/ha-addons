@@ -94,31 +94,46 @@ const V2ELEVATORCMD = {
 
 const HEMSELEM = ["electric", "heat", "hotwater", "gas", "water"];
 
+const HEMSUNIT = {
+    "electric_total": ["kWh", "energy", "{{ (value | float / 100) }}"],
+    "electric_realt": ["W", "power"],
+    "heat_total": ["m³", "", "{{ (value | float / 1000) | round(2) }}"],
+    "heat_realt": ["m³/h", ""],
+    "hotwater_total": ["m³", "", "{{ (value | float / 1000) | round(2) }}"],
+    "hotwater_realt": ["m³/h", ""],
+    "gas_total": ["m³", "gas", "{{ (value | float / 1000) | round(2) }}"],
+    "gas_realt": ["m³/h", ""],
+    "water_total": ["m³", "water", "{{ (value | float / 1000) | round(2) }}"],
+    "water_realt": ["m³/h", ""],
+};
+
 const HEMSMAP = {
     "electric": [8, 12],
-    "heat": [0, 0],
-    "hotwater": [0, 0],
-    "gas": [32, 35],
-    "water": [17, 19]
+    "heat": [40, 44],
+    "hotwater": [24, 28],
+    "gas": [32, 36],
+    "water": [17, 20]
 };
 
-const VENTTEMP = {
-    "low": 0x01,
-    "medium": 0x02,
-    "high": 0x03
-};
+function findVentTempValue(val) {
+    if (val <= 33) {
+        return 0x01;
+    } else if (val <= 66) {
+        return 0x02;
+    } else {
+        return 0x03;
+    }
+}
 
-const VENTTEMPI = {
-    0x01: "low",
-    0x02: "medium",
-    0x03: "high"
-};
-
-const ONOFFDEV = {
-    "gas": "off",
-    "doorlock": "on",
-    "lightbatch": "on"
-};
+function ventPercentage(byte) {
+    if (byte === 0x01) {
+        return 33;
+    } else if (byte === 0x02) {
+        return 66;
+    } else {
+        return 100;
+    }
+}
 
 const DISCOVERY_DEVICE = {
     "ids": ["bestin_wallpad"],
@@ -135,24 +150,18 @@ const DISCOVERY_PAYLOAD = {
         "name": "{0}_light_{1}_{2}",
         "cmd_t": "~/command",
         "stat_t": "~/state",
-        "pl_on": "on",
-        "pl_off": "off",
-        "ret": true,
     }],
-    "lightDimming": [{
+    "slight": [{
         "_intg": "light",
-        "~": "{0}/light/{1}",
-        "name": "{0}_light_{1}_1",
+        "~": "{0}/slight/0",
+        "name": "{0}_slight_0_1",
         "cmd_t": "~/switch1/command",
         "stat_t": "~/switch1/state",
         "bri_scl": 10,
-        "bri_cmd_t": "~/dimming/command",
-        "bri_stat_t": "~/dimming/state",
-        "clr_temp_cmd_t": "~/color/command",
-        "clr_temp_stat_t": "~/color/state",
-        "pl_on": "on",
-        "pl_off": "off",
-        "ret": true,
+        "bri_cmd_t": "~/brightness/command",
+        "bri_stat_t": "~/brightness/state",
+        "clr_temp_cmd_t": "~/colorTemp/command",
+        "clr_temp_stat_t": "~/colorTemp/state",
     }],
     "outlet": [{
         "_intg": "",
@@ -160,22 +169,15 @@ const DISCOVERY_PAYLOAD = {
         "name": "{0}_outlet_{1}_{2}",
         "cmd_t": "~/command",
         "stat_t": "~/state",
-        "pl_on": "on",
-        "pl_off": "off",
-        "icon": "",
-        "unit_of_meas": "W",
-        "ret": true,
+        "ic": "",
     }],
     "gas": [{
-        "_intg": "",
+        "_intg": "switch",
         "~": "{0}/gas/{1}/{2}",
-        "name": "{0}_gas_{2}",
+        "name": "{0}_gas",
         "cmd_t": "~/command",
         "stat_t": "~/state",
-        "pl_on": "on",
-        "pl_off": "off",
-        "icon": "mdi:gas-cylinder",
-        "ret": true,
+        "ic": "mdi:gas-cylinder",
     }],
     "fan": [{
         "_intg": "fan",
@@ -183,12 +185,8 @@ const DISCOVERY_PAYLOAD = {
         "name": "{0}_fan",
         "cmd_t": "~/power/command",
         "stat_t": "~/power/state",
-        "pr_mode_cmd_t": "~/preset/command",
-        "pr_mode_stat_t": "~/preset/state",
-        "pr_modes": ["low", "medium", "high", "nature"],
-        "pl_on": "on",
-        "pl_off": "off",
-        "ret": true,
+        "pct_cmd_t": "~/percent/command",
+        "pct_stat_t": "~/percent/state",
     }],
     "thermostat": [{
         "_intg": "climate",
@@ -203,7 +201,6 @@ const DISCOVERY_PAYLOAD = {
         "min_temp": 5,
         "max_temp": 40,
         "temp_step": 0.5,
-        "ret": true,
     }],
     "energy": [{
         "_intg": "sensor",
@@ -212,32 +209,19 @@ const DISCOVERY_PAYLOAD = {
         "stat_t": "~/state",
         "unit_of_meas": "",
     }],
-    "doorlock": [{
-        "_intg": "",
-        "~": "{0}/doorlock/{1}/{2}",
-        "name": "{0}_doorlock",
-        "cmd_t": "~/command",
-        "stat_t": "~/state",
-        "pl_on": "on",
-        "pl_off": "off",
-        "icon": "mdi:lock",
-        "ret": true,
-    }],
     "elevator": [{
         "_intg": "",
         "~": "{0}/elevator/{1}/{2}",
-        "name": "{0}_ev{2}_srv{1}",
+        "name": "{0}_ev{2}_{1}",
         "cmd_t": "~/command",
         "stat_t": "~/state",
-        "pl_on": "on",
-        "pl_off": "off",
-        "icon": "mdi:elevator",
+        "ic": "mdi:elevator",
     }]
 };
 
-String.format = function(formatted) {
+String.format = function (formatted) {
     var args = Array.prototype.slice.call(arguments, 1);
-    return formatted.replace(/{(\d+)}/g, function(match, number) { 
+    return formatted.replace(/{(\d+)}/g, function (match, number) {
         return typeof args[number] != 'undefined' ? args[number] : match;
     });
 }
@@ -273,15 +257,15 @@ module.exports = {
     V2SLIGHTCMD,
     V2ELEVATORCMD,
 
+    HEMSUNIT,
     HEMSELEM,
     HEMSMAP,
-    VENTTEMP,
-    VENTTEMPI,
-    ONOFFDEV,
     DISCOVERY_DEVICE,
     DISCOVERY_PAYLOAD,
 
     format: String.format,
     deepCopyObject,
-    recursiveFormatWithArgs
+    recursiveFormatWithArgs,
+    findVentTempValue,
+    ventPercentage
 };
