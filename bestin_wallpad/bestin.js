@@ -307,7 +307,7 @@ class BestinRS485 {
         if (typeof value !== "number") {
             logger.info(`publish to MQTT: ${topic} = ${value}`);
         }
-        this.mqttClient.publish(topic, value.toString());
+        this.mqttClient.publish(topic, value.toString(), { retain: true });
     }
 
     formatDiscovery(device, room, name) {
@@ -350,7 +350,7 @@ class BestinRS485 {
         payload.device = DISCOVERY_DEVICE;
 
         const topic = `homeassistant/${integration}/bestin_wallpad/${payloadName}/config`;
-        this.mqttClient.publish(topic, JSON.stringify(payload));
+        this.mqttClient.publish(topic, JSON.stringify(payload), { retain: true });
     }
 
     verifyChecksum(packet) {
