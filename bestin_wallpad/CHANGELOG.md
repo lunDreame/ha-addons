@@ -1,5 +1,13 @@
 ## 수정 내역
 
+## 1.8
+* 환기 Preset Mode제거 -> Percentage
+* bestin_v2 smartlight 타입 재정의
+* 엘리베이터 도착후 상태 업데이트-> 도착/arrived
+* HEMS unit 수정/ 난방,온수 총 사용량 업데이트
+* HEMS/outlet device_class 추가
+* timeStamp로 디바이스 간에 sync 타임을 맞추는 걸로 보아 명령패킷 및 딜레이 시간에 timeStamp 반영
+  
 ## 1.7.3
 * CustomParser 클래스 제거
 * All 명령 제거
