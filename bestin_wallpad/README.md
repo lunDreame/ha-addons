@@ -1,3 +1,5 @@
+# 업데이트 및 지원 불가
+
 # HDC 베스틴 월패드 RS485 Add-on 
 
 ![Supports aarch64 Architecture][aarch64-shield] ![Supports amd64 Architecture][amd64-shield] ![Supports armhf Architecture][armhf-shield] ![Supports armv7 Architecture][armv7-shield] ![Supports i386 Architecture][i386-shield]
@@ -5,7 +7,6 @@
 # 소개 
 * 베스틴 월패드를 사용하는 집에서 사용가능한 애드온 입니다. [월패드 버전 1.0, 2.0]
 * MQTT discovery를 이용하여, 별도의 yaml 구성없이 본인 집 환경에 따라 디바이스가 추가 됩니다.
-* 현재 버전에서 추가적인 업데이트는 없습니다. 혹시나 논의가 필요하다면 하단의 지원 부분을 확인 바랍니다.
 
 ## 지원 목록
 * 해당 기기가 월패드에서 조작및 상태 조회가 가능한 상태여야 합니다.
