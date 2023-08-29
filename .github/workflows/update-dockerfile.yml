@@ -1,4 +1,4 @@
-name: Update Dockerfile [bestin_wallpad]
+name: Update Dockerfile
 
 on:
   schedule:
@@ -12,28 +12,22 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Move to Dockerfile directory
-        run: cd bestin_wallpad
+      - name: Move to repo root
+        run: cd ${{ github.workspace }}
 
-      - name: Extract current FROM version
-        id: get_version
+      - name: Update Dockerfiles
         run: |
-          CURRENT_VERSION=$(grep -oP 'FROM\s+node:\K[\d.-]+' Dockerfile)
-          echo "::set-output name=current_version::$CURRENT_VERSION"
+          for addon_dir in */; do
+            if [ -f "${addon_dir}Dockerfile" ]; then
+              CURRENT_VERSION=$(grep -oP 'FROM\s+node:\K[\d.-]+' ${addon_dir}Dockerfile)
+              LATEST_VERSION=$(curl -sL https://nodejs.org/dist/index.tab | awk -F '\t' '/^lts/{print $1}')
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v2
-        with:
-          node-version: ${{ steps.get_version.outputs.current_version }}
+              if [[ "$CURRENT_VERSION" != "$LATEST_VERSION" ]]; then
+                sed -i "s/FROM node:$CURRENT_VERSION/FROM node:$LATEST_VERSION/" ${addon_dir}Dockerfile
+                git add ${addon_dir}Dockerfile
+                git commit -m "Update Node.js version to $LATEST_VERSION in ${addon_dir}Dockerfile"
+              fi
+            fi
+          done
 
-      - name: Check and update Dockerfile
-        run: |
-          LATEST_VERSION=$(curl -sL https://nodejs.org/dist/index.tab | awk -F '\t' '/^lts/{print $1}')
-
-          if [[ "$CURRENT_VERSION" != "$LATEST_VERSION" ]]; then
-            sed -i "s/FROM node:$CURRENT_VERSION/FROM node:$LATEST_VERSION/" Dockerfile
-            git commit -am "Update Node.js version to $LATEST_VERSION"
-            git push
-          else
-            echo "Dockerfile is already up to date"
-          fi
+          git push
