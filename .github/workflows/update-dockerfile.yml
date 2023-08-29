@@ -1,4 +1,4 @@
-name: Update Dockerfile
+name: Update Dockerfile [bestin_wallpad]
 
 on:
   schedule:
@@ -11,6 +11,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+
+      - name: Move to Dockerfile directory
+        run: cd bestin_wallpad
 
       - name: Extract current FROM version
         id: get_version
