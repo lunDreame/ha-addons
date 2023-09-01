@@ -1,301 +1,244 @@
-const axios = require('axios');
-const mqtt = require('mqtt');
-const fs = require('fs');
-const logger = require('simple-node-logger').createSimpleLogger();
-const options = require('/data/options.json');
+import paho.mqtt.client as mqtt
+import requests
+import json
+import ssl
+import logging
+import time
 
-const stateUrl = 'http://{}:20318/lstinfo';
-const actionUrl = 'http://{}:20318/action';
+class SmartBlind:
+    def __init__(self):
+        self.mqtt_client = self.setup_mqtt_client()
+        self.mqtt_connected = False
+        self.mqtt_previous_state = {}
+        self.mqtt_state_dict = []
+                
+        self.loop = timer, target, args
+        self.thread_[self.loop[1]] = threading.Timer(self.loop[0], self.loop[1], args=self.loop[2])
 
-const command = {
-    OPEN: 'TU',
-    CLOSE: 'BD',
-    STOP: 'SS',
-};
-
-class SmartBlind {
-    constructor() {
-        this.mqttClient = this.mqttClient();
-        this.mqttConnected = false;
-        this.mqttPreviousState = {};
-        this.mqttStateDict = [];
-        this.blindStateCount = 0;
-        this.blindStateInterval = null;
-        this.blindPollInterval = null;
-    }
-
-    mqttClient() {
-        const mqttOptions = {
-            host: options.mqtt[0].server,
-            port: options.mqtt[0].port,
-            username: options.mqtt[0].user || null,
-            password: options.mqtt[0].passwd || null,
+    def setup_mqtt_client(self):
+        mqtt_options = {
+            'host': options['mqtt'][0]['server'],
+            'port': options['mqtt'][0]['port'],
+            'username': options['mqtt'][0].get('user', None),
+            'password': options['mqtt'][0].get('passwd', None),
         }
-        if (options.mqtt_ssl) {
-            mqttOptions.protocol = 'mqtts';
-            mqttOptions.ca = [fs.readFileSync(options.mqtt_ssl_certificate[0].ca_path)];
-            mqttOptions.cert = fs.readFileSync(options.mqtt_ssl_certificate[0].cert_path);
-            mqttOptions.key = fs.readFileSync(options.mqtt_ssl_certificate[0].key_path);
-            mqttOptions.rejectUnauthorized = true;
-        }
-        const client = mqtt.connect(mqttOptions);
-        logger.info('initializing MQTT...');
+        if options['mqtt_ssl']:
+            mqtt_options['protocol'] = 'mqtts'
+            mqtt_options['ca_certs'] = options['mqtt_ssl_certificate'][0]['ca_path']
+            mqtt_options['certfile'] = options['mqtt_ssl_certificate'][0]['cert_path']
+            mqtt_options['keyfile'] = options['mqtt_ssl_certificate'][0]['key_path']
+            mqtt_options['tls_version'] = ssl.PROTOCOL_TLSv1_2
+            mqtt_options['tls_insecure'] = False
 
-        client.on('connect', () => {
-            logger.info('MQTT connection successful!');
-            this.mqttConnected = true;
+        client = mqtt.Client()
+        client.on_connect = self.on_mqtt_connect
+        client.on_message = self.on_mqtt_message
+        #client.on_error = self.on_mqtt_error
+        client.on_disconnect = self.on_mqtt_disconnect
 
-            const topic = 'easyroll/+/+/+/command';
-            logger.info('Subscribe: ' + topic);
+        logger.info('Initializing MQTT...')
+        client.connect(**mqtt_options)
+        return client
 
-            client.subscribe(topic);
+    def on_mqtt_connect(self, mqtt, userdata, flags, rc):
+        if rc == 0:
+            logger.info('MQTT connect successful!')
+            self.loop = options['scan_interval'], request_smart_blind_state, (None)
+            
+            self.mqtt_connected = True
+        else:
+            logger.error(f'MQTT connection error  rc < {paho_mqtt.connack_string(rc)}')
 
-            this.requestSmartBlindState();
-        });
-
-        client.on('error', (err) => {
-            this.mqttConnected = false;
-
-            logger.error('MQTT connection error: ' + err);
-        });
-
-        client.on('reconnect', () => {
-            logger.warn('MQTT connection lost. trying to reconnect...');
-        });
-
-        client.on('message', this.mqttCommand.bind(this));
-
-        return client;
-    }
-
-    findSmartBlinds() {
-        const smartBlinds = [];
-        for (const [id, address] of Object.entries(options.blind)) {
-            const smartBlind = {
-                id: Number(id) + 1,
-                address: address.toString(),
-            };
-            smartBlinds.push(smartBlind);
-        }
-        return smartBlinds;
-    }
-
-    async requestSmartBlindState() {
-        const makeRequest = async (url, smartBlindId) => {
-            try {
-                const response = await axios.get(url);
-
-                this.handleResponse(this.blindStateCount++, response.data, smartBlindId);
-            } catch (error) {
-                logger.error(`The smart blind seems to be offline. Please check the blinds [${error}]`);
-            };
-        }
-
-        const smartBlinds = this.findSmartBlinds();
-
-        for (const smartBlind of smartBlinds) {
-            const { id, address } = smartBlind;
-            await makeRequest(stateUrl.replace('{}', address), id);
-        }
-    }
-
-    startSmartBlindStateRequests() {
-        this.blindStateInterval = setInterval(async () => {
-            await this.requestSmartBlindState();
-        }, options.scan_interval * 1000);
-
-        if (this.mqttConnected === false) {
-            clearInterval(this.blindStateInterval);
-        }
-    }
-
-    handleResponse(timeInterval, body, smartBlindId) {
-        if (body.result !== 'success') {
-            logger.error(`Smart blind (${smartBlindId}) latest status inquiry error [Result: ${body.result}]`);
-            return;
-        }
-
-        const smartBlindState = {
-            serialNumber: body.serial_number.toLowerCase(),
-            index: smartBlindId,
-            ip: body.local_ip,
-            position: Math.round(body.position),
-        };
-
-        if (timeInterval === 1) {
-            logger.info(`Smart blind (${smartBlindId}) latest status inquiry success! [${body.serial_number}:${body.local_ip}]`);
-            this.startSmartBlindStateRequests();
-            this.discoverSmartBlind(smartBlindState);
-        } else if (timeInterval > 1) {
-            logger.info(`Update smart blind (${smartBlindId}) position: ${smartBlindState.position}%`);
-        }
-
-        this.parseSmartBlindState(smartBlindState);
-    }
-
-    async requestSmartBlindPoll(url, smartBlindId, target) {
-        try {
-            const response = await axios.get(url);
-
-            if (response.data.result !== 'success') {
-                logger.error(`Smart blind (${smartBlindId}) latest status inquiry error [Result: ${response.data.result}]`);
-                return;
+        topic = 'easyroll/+/+/+/command'
+        mqtt.subscribe(topic, 0)
+    
+    def on_mqtt_disconnect(self, mqtt, userdata, rc):
+        logger.warning('MQTT disconnected!  ({rc})')
+        self.mqtt_connected = False
+    
+    def find_smart_blinds(self):
+        smart_blinds = []
+        for id, address in options['blind'].items():
+            smart_blind = {
+                'id': int(id) + 1,
+                'address': str(address),
             }
+            smart_blinds.append(smart_blind)
+        return smart_blinds
 
-            const smartBlindState = {
-                serialNumber: response.data.serial_number.toLowerCase(),
-                index: smartBlindId,
-                ip: response.data.local_ip,
-                position: Math.round(response.data.position),
-                property: ['OPEN', 'CLOSE', 'STOP'].includes(target) ? Math.round(response.data.position) !== 0 && Math.round(response.data.position) !== 100 : Math.round(response.data.position) != target,
-            };
-            this.parseSmartBlindState(smartBlindState, this.mqttStateDict);
+    def request_smart_blind_state(self, url, smart_blind_id, move=None):
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            self.handle_response(response.json(), smart_blind_id, move)
+        except Exception as error:
+            logger.error(f'Smart blind  request_smart_blind_state() ex: {error}')
 
-            if (smartBlindState.position == target ||
-                smartBlindState.position === (target === 'OPEN' ? 0 : 100) ||
-                target === 'STOP'
-            ) {
-                this.clearBlindPollInterval();
-            }
-        } catch (error) {
-            logger.error(`Failed to polling smart blind: ${smartBlindId} [${error}]`);
+    def handle_response(self, body, smart_blind_id, move):
+        if body['result'] != 'success':
+            logger.error(f'Smart blind ({smart_blind_id})  handle_response() < {body["result"]}')
+            return
+
+        smart_blind_state = {
+            'serialNumber': body['serial_number'].lower(),
+            'index': smart_blind_id,
+            'ip': body['local_ip'],
+            'position': round(body['position']),
+            'isDirection': False
         }
-    }
+                
+        if self.mqtt_previous_state is None:
+            logger.info(f'Smart blind ({smart_blind_id}) registration! < {body["serial_number"]}::{body["local_ip"]}')
+            self.discover_smart_blind(smart_blind_state)
+        elif move is not None:
+            logger.info(f'Moving blind  {smart_blind_state["position"]} < {move}')
+            smart_blind_state['isDirection'] = True
+            
+            if smart_blind_state['position'] == move: 
+                self.thread_request_smart_blind_state.cancel()
+                smart_blind_state['isDirection'] = False
+        else:
+            logger.info(f'Update blind  {self.mqtt_previous_state["position"]} < {smart_blind_state["position"]} ')
 
-    async sendSmartBlindCommand(url, data, header, smartBlindId, target) {
-        try {
-            const response = await axios.post(url, data, header);
+        self.mqtt_previous_state = smart_blind_state
 
-            if (response.data.result !== 'success') {
-                logger.error(`Smart blind (${smartBlindId}) ${url.body.mode === 'general' ? 'general operation command' : 'percent move command'} error [Result: ${response.data.result}]`);
-                return;
-            }
+        self.parse_smart_blind_state(smart_blind_state)
 
-            if (target /* MEMORY Command Exception */) {
-                this.blindPollInterval = setInterval(async () => {
-                    await this.requestSmartBlindPoll(url.replace('action', 'lstinfo'), smartBlindId, target);
-                }, 1000);
+    def send_smart_blind_command(self, url, data, header, smart_blind_id, target):
+        try:
+            response = requests.post(url, json=data, headers=header)
+            response.raise_for_status()
 
-                this.clearBlindPollInterval = () => { clearInterval(this.blindPollInterval); };
-            }
-        } catch (error) {
-            logger.error(`Failed to ${url.body.mode === 'general' ? 'general operation command' : 'percent move command'} smart blind: ${smartBlindId} [${error}]`);
+            if response.json()['result'] != 'success':
+                logger.error(f'Smart blind ({smart_blind_id})  send_smart_blind_command() < {response.json()["result"]}')
+                return
+
+            if target:  # MEMORY Command Exception
+                time.sleep(0.5)
+                self.loop = 1, request_smart_blind_state, (url.replace('action', 'lstinfo'), smart_blind_id, target)
+
+        except Exception as error:
+            logger.error(f'Request failed!  send_smart_blind_command() > {error}')
+
+    def parse_smart_blind_state(self, smart_blind_state):
+        if self.mqtt_state_dict and smart_blind_state['isDirection']:
+            if self.mqtt_state_dict == 'CLOSE':
+                move_direction = 'closing'
+            elif self.mqtt_state_dict == 'OPEN':
+                move_direction = 'opening'
+            elif self.mqtt_state_dict == 'STOP':
+                move_direction = 'stopped'
+        else:
+            if smart_blind_state['position'] == 0 or smart_blind_state['position'] < 100:
+                move_direction = 'open'
+            elif smart_blind_state['position'] == 100:
+                move_direction = 'closed'
+
+        self.update_smart_blind(smart_blind_state, move_direction)
+
+    def update_smart_blind(self, smart_blind, move_direction):
+        topics = {
+            f'easyroll/{smart_blind["index"]}/{smart_blind["serialNumber"]}/direction/state': move_direction,
+            f'easyroll/{smart_blind["index"]}/{smart_blind["serialNumber"]}/position/state': str(smart_blind['position']),
         }
-    }
 
-    parseSmartBlindState(smartBlindState, direction) {
-        if (direction && smartBlindState.property) {
-            if (direction === 'CLOSE') {
-                this.blindDirection = 'closing';
-            } else if (direction === 'OPEN') {
-                this.blindDirection = 'opening';
-            } else if (direction === 'STOP') {
-                this.blindDirection = 'stopped';
-            }
-        } else {
-            if (smartBlindState.position === 0 || smartBlindState.position < 100) {
-                this.blindDirection = 'open';
-            } else if (smartBlindState.position === 100) {
-                this.blindDirection = 'closed';
-            }
-        }
+        for topic, payload in topics.items():
+            self.mqtt_client.publish(topic, payload, retain=True)
+            logger.info(f'Publish to MQTT: {topic} = {payload}')
 
-        if (this.mqttPreviousState.serialNumber === smartBlindState.serialNumber &&
-            this.mqttPreviousState.position === smartBlindState.position) {
-            return;
-        }
-        this.mqttPreviousState = smartBlindState;
-
-        this.updateSmartBlind(smartBlindState);
-    }
-
-    updateSmartBlind(smartBlind) {
-        const topics = {
-            [`easyroll/${smartBlind.index}/${smartBlind.serialNumber}/direction/state`]: this.blindDirection,
-            [`easyroll/${smartBlind.index}/${smartBlind.serialNumber}/position/state`]: smartBlind.position.toString(),
-        };
-
-        for (const [topic, payload] of Object.entries(topics)) {
-            this.mqttClient.publish(topic, payload, { retain: true });
-            logger.info(`Publish to MQTT: ${topic} = ${payload}`);
-        }
-    }
-
-    discoverSmartBlind(smartBlind) {
-        const topic = `homeassistant/cover/easyroll_${smartBlind.index}/${smartBlind.serialNumber}/config`;
-        const payload = {
-            name: `easyroll_${smartBlind.serialNumber}`,
-            cmd_t: `easyroll/${smartBlind.index}/${smartBlind.serialNumber}/direction/command`,
-            stat_t: `easyroll/${smartBlind.index}/${smartBlind.serialNumber}/direction/state`,
-            pos_t: `easyroll/${smartBlind.index}/${smartBlind.serialNumber}/position/state`,
-            set_pos_t: `easyroll/${smartBlind.index}/${smartBlind.serialNumber}/position/command`,
-            pos_open: 0,
-            pos_clsd: 100,
-            ic: 'mdi:blinds',
-            uniq_id: `easyroll_${smartBlind.serialNumber}`,
-            ret: true,
-            device: {
-                ids: 'Smart Blind',
-                name: 'Smart Blind',
-                mf: 'EasyRoll',
-                mdl: 'EasyRoll Inoshade',
-                sw: 'harwin1/ha-addons/easyroll_blind',
+    def discover_smart_blind(self, smart_blind):
+        topic = f'homeassistant/cover/easyroll_{smart_blind["index"]}/{smart_blind["serialNumber"]}/config'
+        payload = {
+            'name': f'easyroll_{smart_blind["serialNumber"]}',
+            'cmd_t': f'easyroll/{smart_blind["index"]}/{smart_blind["serialNumber"]}/direction/command',
+            'stat_t': f'easyroll/{smart_blind["index"]}/{smart_blind["serialNumber"]}/direction/state',
+            'pos_t': f'easyroll/{smart_blind["index"]}/{smart_blind["serialNumber"]}/position/state',
+            'set_pos_t': f'easyroll/{smart_blind["index"]}/{smart_blind["serialNumber"]}/position/command',
+            'pos_open': 0,
+            'pos_clsd': 100,
+            'ic': 'mdi:blinds',
+            'uniq_id': f'easyroll_{smart_blind["serialNumber"]}',
+            'ret': True,
+            'device': {
+                'ids': 'EasyRoll Smart Blind',
+                'name': 'EasyRoll Smart Blind',
+                'mf': 'EasyRoll',
+                'mdl': 'EasyRoll Inoshade',
+                'sw': 'harwin1/ha-addons/easyroll_blind',
             },
-        };
-        this.mqttClient.publish(topic, JSON.stringify(payload));
+        }
+        self.mqtt_client.publish(topic, json.dumps(payload))
 
-        for (const key of ['M1', 'M2', 'M3']) {
-            const topic = `homeassistant/button/easyroll_${smartBlind.index}_${key}/${smartBlind.serialNumber}/config`;
-            const payload = {
-                name: `easyroll_${smartBlind.serialNumber}_${key}`,
-                cmd_t: `easyroll/${smartBlind.index}/${smartBlind.serialNumber}/${key}/command`,
-                uniq_id: `easyroll_${smartBlind.serialNumber}_${key}`,
-                ret: true,
-                ic: 'mdi:alpha-m-box',
-                device: {
-                    ids: 'Smart Blind',
-                    name: 'Smart Blind',
-                    mf: 'EasyRoll',
-                    mdl: 'EasyRoll Inoshade',
-                    sw: 'harwin1/ha-addons/easyroll_blind',
+        for i in range(1, 3):
+            topic = f'homeassistant/button/easyroll_{smart_blind["index"]}_mem{i}/{smart_blind["serialNumber"]}/config'
+            payload = {
+                'name': f'easyroll_{smart_blind["serialNumber"]}_mem{i}',
+                'cmd_t': f'easyroll/{smart_blind["index"]}/{smart_blind["serialNumber"]}/mem{i}/command',
+                'uniq_id': f'easyroll_{smart_blind["serialNumber"]}_mem{i}',
+                'ret': True,
+                'ic': 'mdi:alpha-m-box',
+                'device': {
+                    'ids': 'EasyRoll Smart Blind',
+                    'name': 'EasyRoll Smart Blind',
+                    'mf': 'EasyRoll',
+                    'mdl': 'EasyRoll Inoshade',
+                    'sw': 'harwin1/ha-addons/easyroll_blind',
                 },
-            };
-            this.mqttClient.publish(topic, JSON.stringify(payload));
-        }
-    }
-
-    mqttCommand(topic, message) {
-        const topics = topic.split('/');
-        const payload = message.toString();
-        const hosts = this.findSmartBlinds();
-        const hostDict = [];
-
-        if (topics[0] !== 'easyroll') {
-            logger.error('Invalid topic prefix: ' + topics[0]);
-            return;
-        }
-
-        for (const host of hosts) {
-            const { id, address } = host;
-            if (id == topics[1]) {
-                hostDict.push(id, actionUrl.replace('{}', address));
             }
-        }
-        logger.info(`Received message: ${topic} = ${payload}`);
+            self.mqtt_client.publish(topic, json.dumps(payload))
 
-        if (topics[3] === 'direction') {
-            this.mqttStateDict = payload;
-            this.sendSmartBlindCommand(hostDict[1], { 'mode': 'general', 'command': command[payload] }, { headers: { 'content-type': 'application/json' } }
-                , hostDict[0], payload);
-        } else if (topics[3] === 'position') {
-            this.mqttStateDict = (payload < this.mqttPreviousState.position ? 'OPEN' : 'CLOSE');
-            this.sendSmartBlindCommand(hostDict[1], { 'mode': 'level', 'command': payload }, { headers: { 'content-type': 'application/json' } }
-                , hostDict[0], payload);
-        } else {
-            this.sendSmartBlindCommand(hostDict[1], { 'mode': 'general', 'command': topics[3] }, { headers: { 'content-type': 'application/json' } }
-                , hostDict[0]);
-        }
-    }
+    def on_mqtt_message(self, userdata, msg):
+        topics = msg.topic.split("/")
+        payload = msg.payload.decode()
+
+        hosts = self.find_smart_blinds()
+        host_dict = []
+
+        for host in hosts:
+            id, address = host['id'], host['address']
+            if id == int(topics[1]):
+                host_dict.extend([id, ACTION_URL.format(address)])
+
+        logger.info(f'Received message: {msg.topic} = {payload}')
+
+        if topics[3] == 'direction':
+            self.mqtt_state_dict = payload
+            self.send_smart_blind_command(host_dict[1], {'mode': 'general', 'command': command[payload]}, {'content-type': 'application/json'}, host_dict[0], (0 if payload == 'OPEN' else 100))
+        elif topics[3] == 'position':
+            self.mqtt_state_dict = 'OPEN' if payload < self.mqtt_previous_state['position'] else 'CLOSE'
+            self.send_smart_blind_command(host_dict[1], {'mode': 'level', 'command': payload}, {'content-type': 'application/json'}, host_dict[0], payload)
+        else:
+            self.send_smart_blind_command(host_dict[1], {'mode': 'general', 'command': topics[3]}, {'content-type': 'application/json'}, host_dict[0])
+
+options = json.load(open('/data/options.json'))
+
+STATE_URL = 'http://{}:20318/lstinfo'
+ACTION_URL = 'http://{}:20318/action'
+
+command = {
+    'OPEN': 'TU',
+    'CLOSE': 'BD',
+    'STOP': 'SS',
 }
 
-new SmartBlind();
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+stream_handler = logging.StreamHandler()
+stream_handler.setFormatter(formatter)
+logger.addHandler(stream_handler)
+
+if __name__ == '__main__':
+    smart_blind_instance = SmartBlind()
+    smart_blinds = smart_blind_instance.find_smart_blinds()
+    
+    for smart_blind in smart_blinds:
+        id, address = smart_blind['id'], smart_blind['address']
+        smart_blind_instance.request_smart_blind_state(STATE_URL.format(address), id)
+
+    if not smart_blind_instance.mqtt_connected:
+        smart_blind_instance.thread_request_smart_blind_state.cancel()
+        
+    while True:
+        smart_blind_instance.setup_mqtt_client()
