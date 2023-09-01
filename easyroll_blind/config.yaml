@@ -20,8 +20,8 @@ options:
   mqtt: 
     - server: 192.168.1.1
       port: 1883
-      user: null
-      passwd: null
+      user: None
+      passwd: None
   mqtt_ssl_certificate:
     - ca_path: /share/easyroll_blind/ca.crt
       cert_path: /share/easyroll_blind/client.crt
