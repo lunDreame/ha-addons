@@ -1,12 +1,14 @@
-FROM node:18-alpine
+FROM python:3
 
 ENV LANG C.UTF-8
 
-COPY smart_blind.js run.sh package.json /
+COPY run.sh smart_blind.py /
 
-RUN npm install 
-RUN chmod a+x /run.sh
+RUN python3 -m pip install requests
+RUN python3 -m pip install paho-mqtt
 
 WORKDIR /share
 
-CMD ["/run.sh"]
+RUN chmod a+x /run.sh
+
+CMD [ "/run.sh" ]
