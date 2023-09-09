@@ -1,0 +1,51 @@
+{
+    "name": "EasyRoll Smart Blind",
+    "version": "2.0",
+    "slug": "easyroll",
+    "description": "Inoshade Blinds for Home Assistant.",
+    "arch": [
+        "armhf",
+        "armv7",
+        "aarch64",
+        "amd64",
+        "i386"
+    ],
+    "map": [
+        "share:rw",
+        "ssl"
+    ],
+    "url": "https://github.com/harwin1/ha-addons/blob/main/easyroll_blind",
+    "startup": "application",
+    "boot": "auto",
+    "uart": true,
+    "options": {
+        "blind": [],
+        "mqtt": {
+            "server": "192.168.1.1",
+            "port": 1883,
+            "username": "",
+            "password": "",
+            "require_login": true
+        },
+        "require_certificate": false,
+        "certfile": "fullchain.pem",
+        "keyfile": "privkey.pem",
+        "scan_interval": 900
+    },
+    "schema": {
+        "blind": [
+            "str"
+        ],
+        "mqtt": {
+            "server": "str",
+            "port": "int",
+            "username": "str?",
+            "password": "str?",
+            "require_login": "bool"
+        },
+        "require_certificate": "bool",
+        "certfile": "str?",
+        "keyfile": "str?",
+        "scan_interval": "int"
+    }
+}
