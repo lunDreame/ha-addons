@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.1
+- Update easyroll_blind to 2.1
+
 ## 2.0
 - MQTT SSL 기능 추가
 - 설정 방법은 DOCS.md 참고
