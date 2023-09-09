@@ -21,53 +21,73 @@ The add-on has a couple of options available. To get the add-on running:
 Add-on configuration:
 
 ```yaml
-blind: []
-mqtt: []
+blind:
+  - 192.168.1.14
+mqtt:
+  server: 192.168.1.10
+  port: 1883
+  username: user
+  password: passwd
+  require_login: true
+require_certificate: false
+certfile: fullchain.pem
+keyfile: privkey.pem
 scan_interval: 900
 ```
 
-### Option: `mqtt_ssl` (selective)
+### Option: `blind`
 
-Enable mqtt ssl security authentication if required. Section *mqtt_ssl_certificate is required.
+Enter addresses for easy roll blinds you want to connect to Type `- ip address` as many blinds as you want
 
-### Option: `blind` (essential)
+### Option: `mqtt`
 
-Enter addresses for easy roll blinds you want to connect to Type "- 'ip address'" as many blinds as you want
+- Fill in the information of the MQTT broker. `server/port` is required and `useranme/password` is filled out if `require_login` is true.
+- For ports with ssl authentication, see `certfile`
 
-```yaml
-blind:
-  - 192.168.1.1
-  - 192.168.x.x....
-  - ....
-```
+### Option: `cafile` (optional)
 
-### Option: `mqtt` (essential)
+A file containing a root certificate. Place this file in the Home Assistant `ssl` folder.
 
-Enter mqtt broker information Required *server *port / username, password is optional and fits your broker information
+### Option: `certfile`
 
-```yaml
-mqtt:
-  - server: 192.168.1.1
-    port: 1883
-    user: user
-    passwd: passwd
-```
+A file containing a certificate, including its chain. Place this file in the Home Assistant `ssl` folder.
 
-### Option: `mqtt_ssl_certificate` (selective)
+**Note on `certfile` and `keyfile`**  
+- If `certfile` and `keyfile` are _not_ provided
+  - Unencrypted connections are possible on the unencrypted ports (default: `1883`, `1884` for websockets)
+- If `certfile` and `keyfile` are provided
+  - Unencrypted connections are possible on the unencrypted ports (default: `1883`, `1884` for websockets)
+  - Encrypted connections are possible on the encrypted ports (default: `8883`, `8884` for websockets) 
+     - In that case, the client must trust the server's certificate
 
-Enter the path of mqtt ssl certificates in ca / cert / key. Modify the predefined route according to your environment
+### Option: `keyfile`
 
-```yaml
-mqtt_ssl_certificate:
-  - ca_path: /share/easyroll_blind/ca.crt
-    cert_path: /share/easyroll_blind/client.crt
-    key_path: /share/easyroll_blind/client.key
-```
+A file containing the private key. Place this file in the Home Assistant `ssl` folder.
 
-### Option: `scan_interval` [unit. minute]
+**Note on `certfile` and `keyfile`**  
+- If `certfile` and `keyfile` are _not_ provided
+  - Unencrypted connections are possible on the unencrypted ports (default: `1883`, `1884` for websockets)
+- If `certfile` and `keyfile` are provided
+  - Unencrypted connections are possible on the unencrypted ports (default: `1883`, `1884` for websockets)
+  - Encrypted connections are possible on the encrypted ports (default: `8883`, `8884` for websockets) 
+     - In that case, the client must trust the server's certificate
+
+### Option: `require_certificate`
+
+If set to `false`:
+- Client is **not required** to provide a certificate to connect, username/password is enough
+- `cafile` option is ignored
+
+If set to `true`:
+- Client is **required** to provide its own certificate to connect, username/password is _not_ enough
+- A certificate authority (CA) must be provided: `cafile` option
+- The client certificate must be signed by the CA provided (`cafile`)
+
+### Option: `scan_interval` 
+
+Blind query status lookup interval. Gets the blind status every `scan_interval` interval.
+
 Default value: `900`
-
-Blind query status lookup interval. Gets the blind status every [scan_interval] interval.
 
 ## Support
 
