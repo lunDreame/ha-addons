@@ -69,6 +69,15 @@ payload = [
         '~': 'easyroll/{}/save_{}',
         'name': 'Inoshade {} Save {}',
         'cmd_t': '~/command',
+    },
+    {
+        'key': 'reverse_direction',
+        'init': 'switch',
+        '~': 'easyroll/{}',
+        'name': 'Inoshade {} Reverse direction',
+        'stat_t': '~/lstinfo/state',
+        'val_tpl': '{{ value_json.reverse }}',
+        'cmd_t': '~/reverse/command',
     }
 ]
 
@@ -277,6 +286,9 @@ def parse_smart_blind_state(smart_blind_state):
         elif smart_blind_state['position'] == 100:
             move_direction = 'closed'
 
+    if options['reverse_direction']:
+        move_direction = {'closing': 'opening', 'opening': 'closing', 'open': 'closed', 'closed': 'open'}.get(move_direction, move_direction)
+        
     if len(mqtt_previous_state) > 0 and mqtt_previous_state['position'] == smart_blind_state['position']:
         return
 
