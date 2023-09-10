@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.3 
+- 문서 및 버그 수정
+  
 ## 2.2
 - reverse_direction 추가
 
