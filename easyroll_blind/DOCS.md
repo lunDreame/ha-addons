@@ -20,7 +20,7 @@ MQTT Integration Component Settings:
 
 1. The Integrated Components page should have MQTT and be "Enabled newly added components" when you click [⋮].
 2. The "Smart Blinds" instrument is created in the MQTT integration component and all entities are registered.
-(./images/entity_list.png)
+!(./images/entity_list.png)
 
 ## Configuration
 
