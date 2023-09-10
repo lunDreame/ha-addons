@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.2
+- reverse_direction 추가
+
 ## 2.1
 - Update easyroll_blind to 2.1
 
