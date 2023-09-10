@@ -207,7 +207,7 @@ def request_smart_blind_state(url, smart_blind_id, move):
 
 
 def handle_response(body, smart_blind_id, move):
-    global mqtt_previous_state, loop_timer
+    global mqtt_previous_state
 
     if body['result'] != 'success':
         logger.error(
@@ -230,9 +230,8 @@ def handle_response(body, smart_blind_id, move):
         logger.info(f'Moving blind  {smart_blind_state["position"]} < {move}')
         smart_blind_state['isDirection'] = True
 
-        if 'STOP' == move or smart_blind_state['position'] == move:
+        if move == 'STOP' or smart_blind_state['position'] == int(move):
             smart_blind_state['isDirection'] = False
-            time.sleep(2)
             _timer['rt2'].stop()
     else:
         logger.info(
@@ -244,7 +243,7 @@ def handle_response(body, smart_blind_id, move):
 
 
 def send_smart_blind_command(url, data, header, smart_blind_id, target):
-    global loop_timer
+    global _timer
 
     try:
         response = requests.post(url, json=data, headers=header)
@@ -345,10 +344,13 @@ def on_mqtt_message(client, userdata, msg):
 
     for host in hosts:
         id, address = host['id'], host['address']
-        if id == int(topics[1]):
-            host_dict.extend([id, action_url.format(address)])
-            break
-
+        try:
+            if id == int(topics[1]):
+                host_dict.extend([id, action_url.format(address)])
+                break
+        except ValueError:
+            logger.error(f'Invalid topic value: {topics[1]}')
+    
     logger.info(f'Received message: {msg.topic}  {payload}')
 
     if len(mqtt_previous_state) == 0:
@@ -357,9 +359,10 @@ def on_mqtt_message(client, userdata, msg):
     if topics[2] in ['general', 'general_step', 'level']:
         mqtt_state_dict = payload if topics[2] in ['general', 'general_step'] else (
             'OPEN' if int(payload) < mqtt_previous_state['position'] else 'CLOSE')
-        send_smart_blind_command(host_dict[1], {'mode': 'general' if topics[2] == 'general_step' else topics[2], 'command': payload if topics == 'level' else ((command[payload][0] if topics[2] == 'general' else command[payload][1]) if payload in ['OPEN', 'CLOSE'] else 'SS')}, {
-            'content-type': 'application/json'}, host_dict[0], payload if topics[2] == 'level' else ((0 if payload == 'OPEN' else 100) if payload in ['OPEN', 'CLOSE'] else 'STOP'))
+        send_smart_blind_command(host_dict[1], {'mode': 'general' if topics[2] == 'general_step' else topics[2], 'command': payload if topics[2] == 'level' else ((command[payload][0] if topics[2] == 'general' else command[payload][1]) if payload in ['OPEN', 'CLOSE'] else 'SS')}, {
+            'content-type': 'application/json'}, host_dict[0], None if topics[2] == 'general_step' else (payload if topics[2] == 'level' else ((0 if payload == 'OPEN' else 100) if payload in ['OPEN', 'CLOSE'] else 'STOP')))
     else:  # Button
+        mqtt_state_dict = None
         send_smart_blind_command(host_dict[1], {'mode': topics[2].split('_')[0], 'command': topics[2].split('_')[1].replace('memory', 'M') if topics[2].split('_')[0] == 'general' else command[topics[2].replace('_', '').upper()]}, {
             'content-type': 'application/json'}, host_dict[0], None)
 
