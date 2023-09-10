@@ -16,6 +16,12 @@ The add-on has a couple of options available. To get the add-on running:
 2. Have some patience and wait a couple of minutes.
 3. Check the add-on log output to see the result.
 
+MQTT Integration Component Settings:
+
+1. The Integrated Components page should have MQTT and be "Enabled newly added components" when you click [⋮].
+2. The "Smart Blinds" instrument is created in the MQTT integration component and all entities are registered.
+(./images/entity_list.png)
+
 ## Configuration
 
 Add-on configuration:
