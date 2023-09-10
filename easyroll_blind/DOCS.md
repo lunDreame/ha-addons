@@ -29,6 +29,7 @@ mqtt:
   username: user
   password: passwd
   require_login: true
+reverse_direction: false
 require_certificate: false
 certfile: fullchain.pem
 keyfile: privkey.pem
@@ -82,6 +83,12 @@ If set to `true`:
 - Client is **required** to provide its own certificate to connect, username/password is _not_ enough
 - A certificate authority (CA) must be provided: `cafile` option
 - The client certificate must be signed by the CA provided (`cafile`)
+
+### Option: `reverse_direction`
+
+Change the status of the blind in reverse
+
+Default value: `false`
 
 ### Option: `scan_interval` 
 
