@@ -13,7 +13,7 @@ This add-on installation allows you to control it from the Easy Roll Blind Home 
   * https://www.paypal.com/paypalme/halwin284?country.x=KR&locale.x=ko_KR
 * 카카오톡
   
- ![카카오톡 기부 QR코드](https://github.com/harwin1/ha-addons/blob/main/bestin_wallpad/images/donation_kakao.png)
+ ![카카오톡 기부 QR코드](./images/donation_kakao.png)
   * https://qr.kakaopay.com/FWDWOBBmR (모바일에서만 가능)
 
 
