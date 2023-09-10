@@ -27,6 +27,7 @@
             "password": "",
             "require_login": true
         },
+        "reverse_direction": false,
         "require_certificate": false,
         "certfile": "fullchain.pem",
         "keyfile": "privkey.pem",
@@ -43,6 +44,7 @@
             "password": "str?",
             "require_login": "bool"
         },
+        "reverse_direction": "bool",
         "require_certificate": "bool",
         "certfile": "str?",
         "keyfile": "str?",
