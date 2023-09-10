@@ -70,15 +70,6 @@ payload = [
         'name': 'Inoshade {} Save {}',
         'cmd_t': '~/command',
     },
-    {
-        'key': 'reverse_direction',
-        'init': 'switch',
-        '~': 'easyroll/{}',
-        'name': 'Inoshade {} Reverse direction',
-        'stat_t': '~/lstinfo/state',
-        'val_tpl': '{{ value_json.reverse }}',
-        'cmd_t': '~/reverse/command',
-    }
 ]
 
 
