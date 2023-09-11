@@ -1,6 +1,6 @@
 {
     "name": "EasyRoll Smart Blind",
-    "version": "2.3",
+    "version": "2.4",
     "slug": "easyroll",
     "description": "Inoshade Blinds for Home Assistant.",
     "arch": [
