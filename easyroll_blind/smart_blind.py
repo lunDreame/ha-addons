@@ -83,7 +83,7 @@ mqtt_state_dict = None
 _timer = {'rt1': '', 'rt2': ''}
 
 class RepeatedTimer(object):
-    def __init__(self, interval, early, function, *args, **kwargs):
+    def __init__(self, interval, early, eType, function, *args, **kwargs):
         self._timer = None
         self.interval = interval
         self.function = function
@@ -92,15 +92,15 @@ class RepeatedTimer(object):
         self.is_running = False
         self.start()
         if early:
-            self.early()
+            self.early(eType)
 
     def _run(self):
         self.is_running = False
         self.start()
         self.function(*self.args, **self.kwargs)
 
-    def early(self):
-        self.function(*self.args, **self.kwargs)
+    def early(self, eType):
+        self.function(*self.args, init=eType, **self.kwargs)
 
     def start(self):
         if not self.is_running:
@@ -182,8 +182,11 @@ def on_mqtt_connect(mqtt, userdata, flags, rc):
 def on_mqtt_disconnect(mqtt, userdata, rc):
     global mqtt_connected
 
-    logger.warning('MQTT disconnected!  ({rc})')
+    logger.warning(f'MQTT disconnected!  ({rc})')
     mqtt_connected = False
+
+    logger.warning('MQTT disconnected. Aborts blind updates.')
+    _timer['rt1'].stop()
 
 
 def find_smart_blinds():
@@ -197,18 +200,16 @@ def find_smart_blinds():
     return smart_blinds
 
 
-def request_smart_blind_state(url, smart_blind_id, move):
-    try:
+def request_smart_blind_state(url, smart_blind_id, move, init=False):
+    try:        
         response = requests.get(url)
         response.raise_for_status()
-        handle_response(response.json(), smart_blind_id, move)
+        handle_response(response.json(), smart_blind_id, move, init)
     except requests.exceptions.RequestException as erra:
-        logger.error(f'Smart blind  request_smart_blind_state() ex < {error}')
+        logger.error(f'Smart blind  request_smart_blind_state() ex < {erra}')
 
 
-def handle_response(body, smart_blind_id, move):
-    global mqtt_previous_state
-
+def handle_response(body, smart_blind_id, move, init):
     if body['result'] != 'success':
         logger.error(
             f'Smart blind ({smart_blind_id})  handle_response() < {body["result"]}')
@@ -221,26 +222,27 @@ def handle_response(body, smart_blind_id, move):
         'position': round(body['position']),
         'isDirection': False
     }
-
-    if len(mqtt_previous_state) == 0:
+    
+    
+    if init:
         logger.info(
             f'Smart blind ({smart_blind_id}) registration! < {body["serial_number"]}::{body["local_ip"]}')
         discover_smart_blind(smart_blind_state)
-    elif move is not None:
-        logger.info(f'Moving blind  {smart_blind_state["position"]} < {move}')
-        smart_blind_state['isDirection'] = True
+        
+    else: 
+        if move is not None:
+            logger.info(f'Moving blind  id:: {smart_blind_id}  {smart_blind_state["position"]} < {move}')
+            smart_blind_state['isDirection'] = True
+            
+            if move == 'STOP' or smart_blind_state['position'] == int(move):
+                smart_blind_state['isDirection'] = False
+                _timer['rt2'].stop()
+        else:
+            logger.info(
+                f'Update blind  id:: {smart_blind_id}  {mqtt_previous_state["position"]} < {smart_blind_state["position"]} ')
 
-        if move == 'STOP' or smart_blind_state['position'] == int(move):
-            smart_blind_state['isDirection'] = False
-            _timer['rt2'].stop()
-    else:
-        logger.info(
-            f'Update blind  {mqtt_previous_state["position"]} < {smart_blind_state["position"]} ')
-
-    parse_smart_blind_state(smart_blind_state)
-
-    mqtt_previous_state = smart_blind_state
-
+    parse_smart_blind_state(smart_blind_state, init)
+    
 
 def send_smart_blind_command(url, data, header, smart_blind_id, target):
     global _timer
@@ -255,14 +257,14 @@ def send_smart_blind_command(url, data, header, smart_blind_id, target):
             return
 
         if target is not None:  # MEMORY Command Exception
-            _timer['rt2'] = RepeatedTimer(1, True, request_smart_blind_state, url.replace(
+            _timer['rt2'] = RepeatedTimer(1, True, False, request_smart_blind_state, url.replace(
                 'action', 'lstinfo'), smart_blind_id, target)
 
     except Exception as error:
         logger.error(f'Request failed!  send_smart_blind_command() > {error}')
 
 
-def parse_smart_blind_state(smart_blind_state):
+def parse_smart_blind_state(smart_blind_state, init):
     if mqtt_state_dict and smart_blind_state['isDirection']:
         if mqtt_state_dict == 'CLOSE':
             move_direction = 'closing'
@@ -279,19 +281,22 @@ def parse_smart_blind_state(smart_blind_state):
     if options['reverse_direction']:
         move_direction = {'closing': 'opening', 'opening': 'closing', 'open': 'closed', 'closed': 'open'}.get(move_direction, move_direction)
         
-    if len(mqtt_previous_state) > 0 and mqtt_previous_state['position'] == smart_blind_state['position']:
+    if init is False and mqtt_previous_state['position'] == smart_blind_state['position']:
         return
 
     update_smart_blind(smart_blind_state, move_direction)
 
 
 def update_smart_blind(smart_blind, move_direction):
+    global mqtt_previous_state
+
     topic = 'easyroll/{}/lstinfo/state'.format(smart_blind['index'])
     payload = {'general': move_direction, 'level': smart_blind['position']}
 
     mqtt.publish(topic, json.dumps(payload), retain=True)
     logger.info('Publish to MQTT: {}  {}'.format(topic, payload))
 
+    mqtt_previous_state = smart_blind
 
 def discover_smart_blind(smart_blind):
     for key in payload:
@@ -307,23 +312,26 @@ def discover_smart_blind(smart_blind):
 
                 mqtt_discovery(copy_key, smart_blind)
         else:
-            key['~'] = key['~'].format(smart_blind['index'])
-            key['name'] = key['name'].format(smart_blind['index'])
+            copy_key = key.copy()
 
-            mqtt_discovery(key, smart_blind)
+            copy_key['~'] = copy_key['~'].format(smart_blind['index'])
+            copy_key['name'] = copy_key['name'].format(smart_blind['index'])
+
+            mqtt_discovery(copy_key, smart_blind)
 
 
 def mqtt_discovery(payload, smart_blind):
     topic = 'homeassistant/{}/inoshade_{}/{}/config'.format(
         payload['init'], smart_blind['serialNumber'], payload['key'])
 
-    device['ids'] = device['ids'].format(smart_blind['serialNumber'])
-    device['mdl'] = device['mdl'].format(smart_blind['serialNumber'])
-    device['sw'] = device['sw'].format(addon_version())
+    copy_device = device.copy()
+    copy_device['ids'] = copy_device['ids'].format(smart_blind['index'])
+    copy_device['mdl'] = copy_device['mdl'].format(smart_blind['serialNumber'])
+    copy_device['sw'] = copy_device['sw'].format(addon_version())
 
     payload['uniq_id'] = 'inoshade_{}_{}'.format(
         smart_blind['serialNumber'], payload['key'])
-    payload['device'] = device
+    payload['device'] = copy_device
 
     logger.info('MQTT discovery initialized: {}'.format(topic))
 
@@ -371,11 +379,8 @@ if __name__ == '__main__':
     logger_setup()
     start_mqtt_loop()
 
-    for smart_blind in find_smart_blinds():
-        id, address = smart_blind['id'], smart_blind['address']
-        if mqtt_connected:
-            _timer['rt1'] = RepeatedTimer(
-                options['scan_interval'], True, request_smart_blind_state, state_url.format(address), id, None)
+    for key in find_smart_blinds():
+        _timer['rt1'] = RepeatedTimer(
+            options['scan_interval'], True, True, request_smart_blind_state, state_url.format(key['address']), key['id'], None)
 
-    if not mqtt_connected:
-        _timer['rt1'].stop()
+        
