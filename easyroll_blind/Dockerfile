@@ -4,7 +4,7 @@ ENV LANG C.UTF-8
 
 COPY run.sh smart_blind.py /
 
-RUN pip install --no-cache-dir requests paho-mqtt
+RUN pip install requests paho-mqtt
 
 WORKDIR /share
 
