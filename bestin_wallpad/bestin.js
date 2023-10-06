@@ -461,7 +461,7 @@ class BestinRS485 {
                     conditionBytes.some(byte => byte === data[conditionIndex])
                 ) {
                     this.energyPacketTimeStamp = [4, timeStampIndex];
-                    const packetLength = parseInt(lengthByteIndex.toString('hex'), 16);
+                    const packetLength = parseInt(lengthByteIndex.toString(16), 16);
                     const packetData = data.slice(index, index + packetLength);
                     packets.push(packetData);
                 }
