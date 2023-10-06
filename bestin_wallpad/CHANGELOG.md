@@ -1,5 +1,8 @@
 ## 수정 내역
 
+## 1.8.1
+Energy TimeStamp RangeError fix
+
 ## 1.8
 * 환기 Preset Mode제거 -> Percentage
 * bestin_v2 smartlight 타입 재정의
