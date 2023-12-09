@@ -19,8 +19,11 @@ const xml2js = require('xml2js');
 
 const {
     HEMSELEM,
+    HEMSELEM2,
     HEMSMAP,
+    HEMSMAP2,
     HEMSUNIT,
+    HEMSUNIT2,
     DISCOVERY_DEVICE,
     DISCOVERY_PAYLOAD,
 
@@ -44,26 +47,28 @@ const DEVICE_INFO = [
 
     // LIGHT
     {
-        device: 'light', header: '02310D01', length: 13, request: 'set',
+        device: 'light', header: ['02310D01', '02005012'], length: [13, 10], request: 'set',
         setPropertyToMsg: (buf, rom, idx, val) => {
-            let id = idx.slice(-1) - 1, pos = (val === "ON" ? 0x80 : 0x00), onff = (val === "ON" ? 0x04 : 0x00);
+            let ngway = buf.slice(2, 4).toString('hex') === '5012', onff = (val == "ON" ? 0x01 : 0x00), roid = 0x50 + Number(rom);
+            let id = idx.slice(-1) - 1, pos = (val === "ON" ? 0x80 : 0x00), onff2 = (val === "ON" ? 0x04 : 0x00);
 
-            buf[5] = rom & 0x0F;
-            buf[6] = (0x01 << id | pos);
-            buf[11] = onff;
+            buf[5] = ngway ? onff : rom & 0x0F;
+            buf[6] = ngway ? id & 0x0F : (0x01 << id | pos);
+            if (ngway) buf[1] = roid; else buf[11] = onff2
             return buf;
         }
     },
 
     // OUTLET
     {
-        device: 'outlet', header: '02310D01', length: 13, request: 'set',
+        device: 'outlet', header: ['02310D01', '02005012'], length: 13, request: 'set',
         setPropertyToMsg: (buf, rom, idx, val) => {
-            let id = idx.slice(-1) - 1, pos = (val === "ON" ? 0x80 : 0x00), onff = (val === "ON" ? 0x09 << id : 0x00);
+            let ngway = buf.slice(2, 4).toString('hex') === '1491', onff = (val == "ON" ? 0x01 : 0x02), roid = 0x50 + Number(rom);
+            let id = idx.slice(-1) - 1, pos = (val === "ON" ? 0x80 : 0x00), onff2 = (val === "ON" ? 0x09 << id : 0x00);
 
-            buf[5] = rom & 0x0F;
-            if (idx === "standby") buf[8] = (val === "ON" ? 0x83 : 0x03);
-            else buf[7] = (0x01 << id | pos), buf[11] = onff;
+            if (ngway) buf[1] = roid; else buf[5] = rom & 0x0F
+            if (idx === "standby") buf[8] = ngway ? 0x01 : (val === "ON" ? 0x83 : 0x03);
+            else if (ngway) buf[9] = id & 0x0F, b[10] = onff; else buf[7] = (0x01 << id | pos), buf[11] = onff2
             return buf;
         }
     },
@@ -103,11 +108,17 @@ const DEVICE_INFO = [
 
     // LIGHT
     {
-        device: 'light', header: '02311E91', length: 30, request: 'ack',
+        device: 'light', header: ['02311E91', '021491'], length: [30, 20], request: 'ack',
         parseToProperty: (buf) => {
             let props = [];
-            for (let i = 0; i < ((buf[5] & 0x0F) === 1 ? 4 : 2); i++) {
-                props.push({ device: 'light', room: buf[5] & 0x0F, value: { [`power${i + 1}`]: (buf[6] & (1 << i)) ? "ON" : "OFF" } });
+            if (buf.slice(2, 4).toString('hex') !== '1491') {
+                for (let i = 0; i < ((buf[5] & 0x0F) === 1 ? 4 : 2); i++) {
+                    props.push({ device: 'light', room: buf[5] & 0x0F, value: { [`power${i + 1}`]: (buf[6] & (1 << i)) ? "ON" : "OFF" } });
+                }
+            } else {
+                for (let i = 0; i < buf[5]; i++) {
+                    props.push({ device: 'light', room: buf[1] & 0x0F, value: { [`power${i + 1}`]: (buf[6] & (1 << i)) ? "ON" : "OFF" } });
+                }
             }
             return props;
         }
@@ -115,14 +126,23 @@ const DEVICE_INFO = [
 
     // OUTLET
     {
-        device: 'outlet', header: '02311E91', length: 30, request: 'ack',
+        device: 'outlet', header: ['02311E91', '021491'], length: [30, 20], request: 'ack',
         parseToProperty: (buf) => {
             let props = [];
-            for (let i = 0; i < ((buf[5] & 0x0F) === 1 ? 3 : 2); i++) {
-                props.push({
-                    device: 'outlet', room: buf[5] & 0x0F,
-                    value: { [`power${i + 1}`]: (buf[7] & (1 << i)) ? "ON" : "OFF", [`usage${i + 1}`]: (buf[16 * i] << 4 | buf[(16 * i) + 1]) / 10 || 0, 'standby': (buf[7] >> 4 & 1) ? "ON" : "OFF" }
-                });
+            if (buf.slice(2, 4).toString('hex') !== '1491') {
+                for (let i = 0; i < ((buf[5] & 0x0F) === 1 ? 3 : 2); i++) {
+                    props.push({
+                        device: 'outlet', room: buf[5] & 0x0F,
+                        value: { [`power${i + 1}`]: (buf[7] & (1 << i)) ? "ON" : "OFF", [`usage${i + 1}`]: (buf[16 * i] << 4 | buf[(16 * i) + 1]) / 10 || 0, 'standby': (buf[7] >> 4 & 1) ? "ON" : "OFF" }
+                    });
+                }
+            } else {
+                for (let i = 0; i < buf[7]; i++) {
+                    props.push({
+                        device: 'outlet', room: buf[1] & 0x0F,
+                        value: { [`power${i + 1}`]: (buf[8] & (1 << i)) ? "ON" : "OFF", [`usage${i + 1}`]: parseInt((i === 0 ? buf.slice(10, 12) : buf.slice(15, 17)).toString('hex'), 16) / 10 || 0, [`standby${i + 1}`]: ((i === 0 ? buf[9] : buf[14]) >> 4 & 1) ? "ON" : "OFF" }
+                    });
+                }
             }
             return props;
         }
@@ -161,16 +181,26 @@ const DEVICE_INFO = [
 
     // ENERGY
     {
-        device: 'energy', header: '02D13082', length: 48, request: 'ack',
+        device: 'energy', header: ['02D13082', '02D12282'], length: [48, 34], request: 'ack',
         parseToProperty: (buf) => {
-            let props = [], i = 13;
+            let props = [], i = 13, i2 = 0;
 
-            for (const h of HEMSELEM) {
-                props.push({
-                    device: 'energy', room: h,
-                    value: { 'total': parseInt(buf.slice(HEMSMAP[h][0], HEMSMAP[h][1]).toString('hex')), 'realt': parseInt(buf.slice(i, i + 2).toString('hex')) }
-                });
-                i += 8;
+            if (buf.slice(2, 4).toString('hex') !== '2282') {
+                for (const h of HEMSELEM) {
+                    props.push({
+                        device: 'energy', room: h,
+                        value: { 'total': parseInt(buf.slice(HEMSMAP[h][0], HEMSMAP[h][1]).toString('hex')), 'realt': parseInt(buf.slice(i, i + 2).toString('hex')) }
+                    });
+                    i += 8;
+                }
+            } else {
+                for (const h2 of HEMSELEM2) {
+                    props.push({
+                        device: 'energy', room: h2,
+                        value: { 'total': parseInt(buf.slice(HEMSMAP2[h2][0], HEMSMAP2[h2][1]).toString('hex')), 'realt': parseInt(buf.slice(i2, i2 + 2).toString('hex')) }
+                    });
+                    i2 += 0;
+                }
             }
             return props;
         }
@@ -188,6 +218,7 @@ class BestinRS485 {
         this.serialCommandQueue = new Array();
         this.deviceStatusCache = {};
         this.deviceStatusArray = [];
+        this.setCommandBufferIndex = 0;
 
         this.mqttClient = this.createMqttClient();
         this.mqttPrefix = options.mqtt.prefix;
@@ -331,7 +362,8 @@ class BestinRS485 {
             payload['name'] = format(payload['name'], this.mqttPrefix, room, name.replace(/power|switch/g, ''));
 
             if (device === 'energy') {
-                const measurementUnit = HEMSUNIT[room + '_' + name];
+                const HEMSUNITYP = this.setCommandBufferIndex === 1 ? HEMSUNIT2 : HEMSUNIT;
+                const measurementUnit = HEMSUNITYP[room + '_' + name];
 
                 payload['unit_of_meas'] = measurementUnit[0];
                 if (measurementUnit[1]) payload['dev_cla'] = measurementUnit[1];
@@ -361,9 +393,8 @@ class BestinRS485 {
             checksum = (checksum + 1) & 0xFF;
         }
         if (checksum !== packet[packet.length - 1]) {
-            // logger.error(`checksum error: ${packet.toString('hex')}, ${checksum.toString(16)}`);
+            logger.error(`checksum error: ${packet.toString('hex')}, ${checksum.toString(16)}`);
 
-            /** frequently annotate packets that are broken in the middle */
             return false;
         }
         return true;
@@ -397,9 +428,8 @@ class BestinRS485 {
                 encoding: 'hex'
             });
 
-            this.serial.on('data', (data) => {
-                const parserSelect = serialName.charAt(0).toUpperCase() + serialName.slice(1);
-                this[`handle${parserSelect}Parser`](data);
+            this.serial.on('data', (buffer) => {
+                this.findAndSplitBuffer(buffer);
             });
             this.serial.on('open', () => {
                 logger.info(`successfully opened ${serialName} port: ${connData.path}`);
@@ -417,9 +447,8 @@ class BestinRS485 {
                 logger.info(`successfully connected to ${serialName} server`);
             });
 
-            this.socket.on('data', (data) => {
-                const parserSelect = serialName.charAt(0).toUpperCase() + serialName.slice(1);
-                this[`handle${parserSelect}Parser`](data);
+            this.socket.on('data', (buffer) => {
+                this.findAndSplitBuffer(buffer);
             });
             this.socket.on('end', () => {
                 logger.info(`disconnected from ${serialName} server`);
@@ -435,111 +464,41 @@ class BestinRS485 {
         return (this.serial, this.socket);
     }
 
-    handleEnergyParser(data) {
-        const separator = Buffer.from([0x02]);
+    findAndSplitBuffer(buffer) {
+        const headerBuffer = Buffer.concat([buffer.slice(0, 2)]);
+        let indexOfHeader = buffer.indexOf(headerBuffer, 2);
 
-        const findPacketStartIndexes = (data, separator) => {
-            const indexes = [];
-            let currentIndex = 0;
+        while (indexOfHeader !== -1) {
+            for (let i = 0; i < 2; i++) {
+                let start, end;
 
-            while (currentIndex < data.length) {
-                const index = data.indexOf(separator, currentIndex);
-                if (index === -1) break;
-                indexes.push(index);
-                currentIndex = index + 1;
-            }
-            return indexes;
-        }
-
-        const extractPackets = (data, indexes, conditionBytes) => {
-            const packets = [];
-
-            for (const index of indexes) {
-                const conditionIndex = index + 1, lengthByteIndex = index + 2, timeStampIndex = index + 4;
-                if (
-                    conditionIndex + conditionBytes.length <= data.length &&
-                    conditionBytes.some(byte => byte === data[conditionIndex])
-                ) {
-                    this.energyPacketTimeStamp = [4, timeStampIndex];
-                    const packetLength = parseInt(lengthByteIndex.toString('hex'), 16);
-                    const packetData = data.slice(index, index + packetLength);
-                    packets.push(packetData);
+                if (i === 0) {
+                    start = 0;
+                    end = indexOfHeader;
+                } else {
+                    start = indexOfHeader;
+                    end = buffer.length;
                 }
+                const packetBuffer = buffer.slice(start, end);
+                this.handlePacket(packetBuffer);
             }
-            return packets;
-        }
 
-        const conditionBytes = [0x31, 0x41, 0x42, 0xD1];
-        const packetStartIndexes = findPacketStartIndexes(data, separator);
-        const extractedPackets = extractPackets(data, packetStartIndexes, conditionBytes);
-
-        for (const packet of extractedPackets) {
-            if (this.verifyChecksum(packet)) {
-                this.handlePacket(packet, this.energyPacketTimeStamp);
-            }
+            buffer = buffer.slice(indexOfHeader + headerBuffer.length);
+            indexOfHeader = buffer.indexOf(headerBuffer, 2);
         }
     }
 
-    handleControlParser(data) {
-        const separator = Buffer.from([0x02]);
-
-        const findPacketStartIndexes = (data, separator) => {
-            const indexes = [];
-            let currentIndex = 0;
-
-            while (currentIndex < data.length) {
-                const index = data.indexOf(separator, currentIndex);
-                if (index === -1) break;
-                indexes.push(index);
-                currentIndex = index + 1;
-            }
-            return indexes;
-        };
-
-        const packetByteInfo = (data, index, length = 0, timeStamp = 0) => {
-            if (data[index + 1] == 0x61 || ['3100', '3180'].includes(data.slice(index + 1, index + 3).toString('hex'))) {
-                length = 10, timeStamp = [3, data[index + 3]];
-            } else {
-                length = parseInt(data.slice(index + 2, index + 3).toString('hex'), 16), timeStamp = [4, data[index + 4]];
-            }
-            return { length, timeStamp };
-        };
-
-        const extractPackets = (data, indexes, conditionBytes) => {
-            const packets = [];
-
-            for (const index of indexes) {
-                const conditionIndex = index + 1;
-                if (
-                    conditionIndex + conditionBytes.length <= data.length &&
-                    conditionBytes.some(byte => byte === data[conditionIndex])
-                ) {
-                    const { length, timeStamp } = packetByteInfo(data, index);
-                    this.controlPacketTimeStamp = timeStamp;
-                    const packetData = data.slice(index, index + length);
-                    packets.push(packetData);
-                }
-            }
-            return packets;
-        }
-
-        const conditionBytes = [0x28, 0x31, 0x61, 0xD1, 0xB1];
-        const packetStartIndexes = findPacketStartIndexes(data, separator);
-        const extractedPackets = extractPackets(data, packetStartIndexes, conditionBytes);
-
-        for (const packet of extractedPackets) {
-            if (this.verifyChecksum(packet)) {
-                this.handlePacket(packet, this.controlPacketTimeStamp);
-            }
-        }
-    }
-
-    handlePacket(packet, stamp) {
-        //console.log('recive packet:', packet.toString('hex'))
+    handlePacket(packet) {
+        // console.log('recive packet:', packet.toString('hex'))
         this.lastReceivedTimestamp = new Date();
+        this.isCommandIndex = false;
 
-        if (packet[0] === 0x02 && packet[stamp[0]] === stamp[1]) {
-            this.synchronizedTime = this.lastReceivedTimestamp;
+        // if (packet[0] === 0x02) {
+        //    this.synchronizedTime = this.lastReceivedTimestamp;
+        // }
+        if (!this.isCommandIndex && packet.slice(2, 4).toString('hex') === '1491') {
+            this.setCommandBufferIndex = 1;
+            this.isCommandIndex = true;
         }
 
         const receivedMsg = this.findOrCreateReceivedMsg(packet);
@@ -572,8 +531,13 @@ class BestinRS485 {
         const actualLength = packet.length;
         const actualHeader = packet.subarray(0, expectLength).toString('hex').toUpperCase();
 
+        const gatewayHeaderType = actualHeader.includes('1491') ? '021491' : actualHeader;
+
         const validMsgInfos = DEVICE_INFO.filter(({ header, length, parseToProperty }) => {
-            if (header === actualHeader && length === actualLength && parseToProperty) return actualHeader;
+            const headerIsArray = Array.isArray(header) ? header.includes(gatewayHeaderType) : header === actualHeader;
+            const lengthIsArray = Array.isArray(length) ? length.includes(actualLength) : length === actualLength;
+
+            if (headerIsArray && lengthIsArray && parseToProperty) return actualHeader;
         });
 
         const receivedMsg = {
@@ -716,12 +680,14 @@ class BestinRS485 {
             logger.warn(`no payload:    ${device}`);
             return;
         }
+        const devInfoHeader = Array.isArray(deviceInfo.header) ? deviceInfo.header[this.setCommandBufferIndex] : deviceInfo.header;
+        const devInfoLength = Array.isArray(deviceInfo.length) ? deviceInfo.length[this.setCommandBufferIndex] : deviceInfo.length;
 
-        const headerBuffer = Buffer.from(deviceInfo.header + timeStamp.toString(16), 'hex');
-        const restBuffer = Buffer.alloc(deviceInfo.length - headerBuffer.length);
+        const headerBuffer = Buffer.from(devInfoHeader + timeStamp.toString(16), 'hex');
+        const restBuffer = Buffer.alloc(devInfoLength - headerBuffer.length);
         const commandBuffer = this.createCommandBuffer(headerBuffer, restBuffer, deviceInfo, room, name, value);
 
-        commandBuffer[deviceInfo.length - 1] = this.generateChecksum(commandBuffer);
+        commandBuffer[devInfoLength - 1] = this.generateChecksum(commandBuffer);
 
         this.addCommandToQueue(commandBuffer, device, room, name, value, callback);
     }
@@ -998,7 +964,7 @@ class BestinRS485 {
                     device: 'elevator', room: this.elevatorEventArray[0],
                     value: { 'call': this.elevatorCallSuccess, 'direction': this.elevatorEventArray[1], 'floor': this.elevatorEventArray[2] }
                 };
-            } else {
+            } else if (this.elevatorEventArray?.[0]) {
                 deviceProps = {
                     device: 'elevator', room: this.elevatorEventArray[0],
                     value: { 'direction': '도착', 'floor': 'arrived' }
