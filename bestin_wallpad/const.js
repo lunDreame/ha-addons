@@ -93,6 +93,7 @@ const V2ELEVATORCMD = {
 };
 
 const HEMSELEM = ["electric", "heat", "hotwater", "gas", "water"];
+const HEMSELEM2 = ["electric", "gas", "water"];
 
 const HEMSUNIT = {
     "electric_total": ["kWh", "energy", "{{ (value | float / 100) }}"],
@@ -107,12 +108,28 @@ const HEMSUNIT = {
     "water_realt": ["m³/h", ""],
 };
 
+const HEMSUNIT2 = {
+    "electric_total": ["kWh", "energy"],
+    "electric_realt": ["W", "power"],
+    "gas_total": ["m³", "gas"],
+    "gas_realt": ["m³/h", ""],
+    "water_total": ["m³", "water"],
+    "water_realt": ["m³/h", ""],
+};
+
+// Total energy usage
 const HEMSMAP = {
     "electric": [8, 12],
     "heat": [40, 44],
     "hotwater": [24, 28],
     "gas": [32, 36],
     "water": [17, 20]
+};
+
+const HEMSMAP2 = {
+    "electric": [0, 0],
+    "gas": [0, 0],
+    "water": [0, 0]
 };
 
 function findVentTempValue(val) {
@@ -258,8 +275,11 @@ module.exports = {
     V2ELEVATORCMD,
 
     HEMSUNIT,
+    HEMSUNIT2,
     HEMSELEM,
+    HEMSELEM2,
     HEMSMAP,
+    HEMSMAP2,
     DISCOVERY_DEVICE,
     DISCOVERY_PAYLOAD,
 
