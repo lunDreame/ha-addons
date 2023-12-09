@@ -1,6 +1,6 @@
 {
     "name": "HDC BESTIN WallPad RS485 Addon",
-    "version": "1.8",
+    "version": "1.9",
     "slug": "bestin_wallpad",
     "description": "현대산업개발 베스틴 월패드용 애드온입니다.",
     "arch": [
@@ -13,12 +13,12 @@
     "map": [
         "share:rw"
     ],
-    "url": "https://github.com/harwin1/ha-addons/blob/main/bestin_wallpad",
+    "url": "https://github.com/iluna8/ha-addons/blob/main/bestin_wallpad",
     "startup": "application",
     "boot": "auto",
     "uart": true,
     "options": {
-        "server_enable": true,
+        "server_enable": false,
         "server_type": "v2",
         "smart_lighting": false,
         "energy": {
