@@ -39,7 +39,7 @@
   * 애드온 포트매핑  ENERGY: energy / CTRL: control
   ![Bestin 1.0의 게이트웨이](./images/port_1.0.png)
 * Bestin 1.0 일체형
-  * 월패드 후면 CTRL 랜선을 브릿지 하여 브릿지 한 랜선 중 흰주/주, 흰파/파 EW11 각각 연결
+  * 월패드 후면 CTRL 랜선을 브릿지 하여 브릿지 한 랜선 중 흰주/주, 흰파/파 EW11 각각 연결 (환경에 따라 다른 속선 이거나 랜선일 수 있음)
   * 애드온 포트매핑  흰주/주: energy / 흰파/파: control
   ![Bestin 1.0 일체형의 게이트웨이](./images/port_one.jpg)
 
