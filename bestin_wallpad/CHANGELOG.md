@@ -1,5 +1,13 @@
 ## 수정 내역
 
+## 1.9
+* 게이트웨이가 없는 세대 지원(월패드 일체형) 
+* 기존 패킷 구분자 정의 방식으로 인해 집마다 다른 패킷 구조를 판별하기 어려움
+  이러한 문제를 해결하기 위해 자동으로 구분자를 찾아서 나눔
+
+## 1.8.1
+* Energy TimeStamp RangeError fix
+
 ## 1.8
 * 환기 Preset Mode제거 -> Percentage
 * bestin_v2 smartlight 타입 재정의
