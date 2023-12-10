@@ -31,6 +31,10 @@ const V1LIGHTSTATUS = {
     }
 };
 
+V2LIGHTCOSTEX = [
+    "https://bsj.hdc-smart.com"
+];
+
 const V2LIGHTSTATUS = {
     "url": "{0}/v2/api/features/{1}/1/apply",
     "method": "GET",
@@ -57,14 +61,14 @@ const V1LIGHTCMD = {
 };
 
 const V2LIGHTCMD = {
-    "url": "{0}/v2/api/features/livinglight/{1}/apply",
+    "url": "{0}/v2/api/features/{1}/{2}/apply",
     "method": "PUT",
     "data": {
-        "unit": "{2}",
-        "state": "{3}"
+        "unit": "{3}",
+        "state": "{4}"
     },
     "headers": {
-        "access-token": "{4}",
+        "access-token": "{5}",
         "accept": "application/json",
         "user-agent": "Mozilla/5.0"
     }
@@ -92,44 +96,28 @@ const V2ELEVATORCMD = {
     }
 };
 
-const HEMSELEM = ["electric", "heat", "hotwater", "gas", "water"];
-const HEMSELEM2 = ["electric", "gas", "water"];
+const HEMSELEM = ["electric", "water", "hotwater", "gas", "heat"];
 
 const HEMSUNIT = {
     "electric_total": ["kWh", "energy", "{{ (value | float / 100) }}"],
     "electric_realt": ["W", "power"],
-    "heat_total": ["m³", "", "{{ (value | float / 1000) | round(2) }}"],
-    "heat_realt": ["m³/h", ""],
+    "water_total": ["m³", "water", "{{ (value | float / 1000) | round(2) }}"],
+    "water_realt": ["m³/h", ""],
     "hotwater_total": ["m³", "", "{{ (value | float / 1000) | round(2) }}"],
     "hotwater_realt": ["m³/h", ""],
     "gas_total": ["m³", "gas", "{{ (value | float / 1000) | round(2) }}"],
     "gas_realt": ["m³/h", ""],
-    "water_total": ["m³", "water", "{{ (value | float / 1000) | round(2) }}"],
-    "water_realt": ["m³/h", ""],
-};
-
-const HEMSUNIT2 = {
-    "electric_total": ["kWh", "energy"],
-    "electric_realt": ["W", "power"],
-    "gas_total": ["m³", "gas"],
-    "gas_realt": ["m³/h", ""],
-    "water_total": ["m³", "water"],
-    "water_realt": ["m³/h", ""],
+    "heat_total": ["m³", "", "{{ (value | float / 1000) | round(2) }}"],
+    "heat_realt": ["m³/h", ""],
 };
 
 // Total energy usage
 const HEMSMAP = {
     "electric": [8, 12],
-    "heat": [40, 44],
+    "water": [17, 20],
     "hotwater": [24, 28],
     "gas": [32, 36],
-    "water": [17, 20]
-};
-
-const HEMSMAP2 = {
-    "electric": [0, 0],
-    "gas": [0, 0],
-    "water": [0, 0]
+    "heat": [40, 44],
 };
 
 function findVentTempValue(val) {
@@ -152,12 +140,25 @@ function ventPercentage(byte) {
     }
 }
 
+function lightPosPow(n) {
+    let result = 1;
+
+    for (let i = 0; i < n; i++) {
+        result *= 2;
+    }
+    // max light count 5
+    if (result === 16) {
+        result = 10;
+    }
+    return result;
+}
+
 const DISCOVERY_DEVICE = {
     "ids": ["bestin_wallpad"],
     "name": "bestin_wallpad",
     "mf": "HDC BESTIN",
     "mdl": "Bestin Wallpad",
-    "sw": "harwin1/ha-addons/bestin_wallpad",
+    "sw": "iluna8/ha-addons/bestin_wallpad",
 };
 
 const DISCOVERY_PAYLOAD = {
@@ -268,6 +269,7 @@ module.exports = {
     V1LOGIN,
     V2LOGIN,
     V1LIGHTSTATUS,
+    V2LIGHTCOSTEX,
     V2LIGHTSTATUS,
     V1LIGHTCMD,
     V2LIGHTCMD,
@@ -275,11 +277,8 @@ module.exports = {
     V2ELEVATORCMD,
 
     HEMSUNIT,
-    HEMSUNIT2,
     HEMSELEM,
-    HEMSELEM2,
     HEMSMAP,
-    HEMSMAP2,
     DISCOVERY_DEVICE,
     DISCOVERY_PAYLOAD,
 
@@ -287,5 +286,6 @@ module.exports = {
     deepCopyObject,
     recursiveFormatWithArgs,
     findVentTempValue,
-    ventPercentage
+    ventPercentage,
+    lightPosPow,
 };
