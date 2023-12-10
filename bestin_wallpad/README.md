@@ -138,7 +138,7 @@
 ### `energy / control`
 * about
   * energy 또는 control 하나만 연결하는 경우에는 애드온 구성 serial, socket 경우 path, address를 ""로 성정 (기본값으로 설정되어 있음)
-  * single_comm 활성화 시 energy만 사용하세요.
+  * single_comm 활성화 시 **energy**만 사용하세요.
 * type
   * socket (EW11을 이용하는 경우)
   * serial (USB to RS485 혹은 TTL to RS485를 이용하는 경우)
