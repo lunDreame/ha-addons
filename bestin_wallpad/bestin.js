@@ -19,17 +19,15 @@ const xml2js = require('xml2js');
 
 const {
     HEMSELEM,
-    HEMSELEM2,
     HEMSMAP,
-    HEMSMAP2,
     HEMSUNIT,
-    HEMSUNIT2,
     DISCOVERY_DEVICE,
     DISCOVERY_PAYLOAD,
 
     V1LOGIN,
     V2LOGIN,
     V1LIGHTSTATUS,
+    V2LIGHTCOSTEX,
     V2LIGHTSTATUS,
     V1LIGHTCMD,
     V2LIGHTCMD,
@@ -39,7 +37,8 @@ const {
     deepCopyObject,
     recursiveFormatWithArgs,
     findVentTempValue,
-    ventPercentage
+    ventPercentage,
+    lightPosPow,
 } = require('./srv/const.js');
 
 const DEVICE_INFO = [
@@ -47,13 +46,13 @@ const DEVICE_INFO = [
 
     // LIGHT
     {
-        device: 'light', header: ['02310D01', '02005012'], length: [13, 10], request: 'set',
+        device: 'light', header: ['02310D01', '02000A12'], length: [13, 10], request: 'set',
         setPropertyToMsg: (buf, rom, idx, val) => {
-            let ngway = buf.slice(2, 4).toString('hex') === '5012', onff = (val == "ON" ? 0x01 : 0x00), roid = 0x50 + Number(rom);
+            let ngway = buf.slice(2, 4).toString('hex') === '0a12', onff = (val == "ON" ? 0x01 : 0x00), roid = 0x50 + Number(rom);
             let id = idx.slice(-1) - 1, pos = (val === "ON" ? 0x80 : 0x00), onff2 = (val === "ON" ? 0x04 : 0x00);
 
             buf[5] = ngway ? onff : rom & 0x0F;
-            buf[6] = ngway ? id & 0x0F : (0x01 << id | pos);
+            buf[6] = ngway ? lightPosPow(id) : (0x01 << id | pos);
             if (ngway) buf[1] = roid; else buf[11] = onff2
             return buf;
         }
@@ -61,14 +60,14 @@ const DEVICE_INFO = [
 
     // OUTLET
     {
-        device: 'outlet', header: ['02310D01', '02005012'], length: 13, request: 'set',
+        device: 'outlet', header: ['02310D01', '02000C12'], length: [13, 12], request: 'set',
         setPropertyToMsg: (buf, rom, idx, val) => {
-            let ngway = buf.slice(2, 4).toString('hex') === '1491', onff = (val == "ON" ? 0x01 : 0x02), roid = 0x50 + Number(rom);
+            let ngway = buf.slice(2, 4).toString('hex') === '0c12', onff = (val == "ON" ? 0x01 : 0x02), roid = 0x50 + Number(rom);
             let id = idx.slice(-1) - 1, pos = (val === "ON" ? 0x80 : 0x00), onff2 = (val === "ON" ? 0x09 << id : 0x00);
 
             if (ngway) buf[1] = roid; else buf[5] = rom & 0x0F
-            if (idx === "standby") buf[8] = ngway ? 0x01 : (val === "ON" ? 0x83 : 0x03);
-            else if (ngway) buf[9] = id & 0x0F, b[10] = onff; else buf[7] = (0x01 << id | pos), buf[11] = onff2
+            if (!ngway && idx === "standby") buf[8] = (val === "ON" ? 0x83 : 0x03);
+            else if (ngway) buf[8] = 0x01, buf[9] = id + 1 & 0x0F, buf[10] = (idx.length === 8 ? onff >> onff + 3 : onff); else buf[7] = (0x01 << id | pos), buf[11] = onff2
             return buf;
         }
     },
@@ -133,14 +132,14 @@ const DEVICE_INFO = [
                 for (let i = 0; i < ((buf[5] & 0x0F) === 1 ? 3 : 2); i++) {
                     props.push({
                         device: 'outlet', room: buf[5] & 0x0F,
-                        value: { [`power${i + 1}`]: (buf[7] & (1 << i)) ? "ON" : "OFF", [`usage${i + 1}`]: (buf[16 * i] << 4 | buf[(16 * i) + 1]) / 10 || 0, 'standby': (buf[7] >> 4 & 1) ? "ON" : "OFF" }
+                        value: { [`power${i + 1}`]: (buf[7] & (1 << i)) ? "ON" : "OFF", [`usage${i + 1}`]: (buf[14 + 2 * i] << 8 | buf[14 + 2 * i + 1]) / 10 || 0, 'standby': (buf[7] >> 4 & 1) ? "ON" : "OFF" }
                     });
                 }
             } else {
                 for (let i = 0; i < buf[7]; i++) {
                     props.push({
                         device: 'outlet', room: buf[1] & 0x0F,
-                        value: { [`power${i + 1}`]: (buf[8] & (1 << i)) ? "ON" : "OFF", [`usage${i + 1}`]: parseInt((i === 0 ? buf.slice(10, 12) : buf.slice(15, 17)).toString('hex'), 16) / 10 || 0, [`standby${i + 1}`]: ((i === 0 ? buf[9] : buf[14]) >> 4 & 1) ? "ON" : "OFF" }
+                        value: { [`power${i + 1}`]: 0 ? "ON" : "OFF", [`usage${i + 1}`]: (buf[10 + 5 * i] << 8 | buf[10 + 5 * i + 1]) / 10 || 0, [`standby${i + 1}`]: 0 ? "ON" : "OFF" }
                     });
                 }
             }
@@ -183,7 +182,7 @@ const DEVICE_INFO = [
     {
         device: 'energy', header: ['02D13082', '02D12282'], length: [48, 34], request: 'ack',
         parseToProperty: (buf) => {
-            let props = [], i = 13, i2 = 0;
+            let props = [], i = 13;
 
             if (buf.slice(2, 4).toString('hex') !== '2282') {
                 for (const h of HEMSELEM) {
@@ -194,12 +193,9 @@ const DEVICE_INFO = [
                     i += 8;
                 }
             } else {
-                for (const h2 of HEMSELEM2) {
-                    props.push({
-                        device: 'energy', room: h2,
-                        value: { 'total': parseInt(buf.slice(HEMSMAP2[h2][0], HEMSMAP2[h2][1]).toString('hex')), 'realt': parseInt(buf.slice(i2, i2 + 2).toString('hex')) }
-                    });
-                    i2 += 0;
+                for (const h of ["electric", "water", "gas"]) {
+                    props.push({ device: 'energy', room: h, value: { 'realt': parseInt(buf.slice(i, i + 2).toString('hex')) } });
+                    i += 8;
                 }
             }
             return props;
@@ -250,7 +246,7 @@ class BestinRS485 {
             const topic = `${this.mqttPrefix}/+/+/+/command`;
             client.subscribe(topic);
 
-            if (this.shouldRegisterSrvEV) {
+            if (this.shouldRegisterSrvEV && fs.existsSync('./session.json')) {
                 logger.info("registering elevator srv...");
                 this.serverCommand('elevator', null, JSON.parse(fs.readFileSync('./session.json')));
             }
@@ -362,8 +358,7 @@ class BestinRS485 {
             payload['name'] = format(payload['name'], this.mqttPrefix, room, name.replace(/power|switch/g, ''));
 
             if (device === 'energy') {
-                const HEMSUNITYP = this.setCommandBufferIndex === 1 ? HEMSUNIT2 : HEMSUNIT;
-                const measurementUnit = HEMSUNITYP[room + '_' + name];
+                const measurementUnit = HEMSUNIT[room + '_' + name];
 
                 payload['unit_of_meas'] = measurementUnit[0];
                 if (measurementUnit[1]) payload['dev_cla'] = measurementUnit[1];
@@ -413,6 +408,9 @@ class BestinRS485 {
     createConnection(connData, serialName) {
         if (connData.path === "" && connData.address === "") {
             logger.warn(`${serialName} connection disabled!`);
+            return;
+        }
+        if (options.rs485.single_comm && serialName === "control") {
             return;
         }
         logger.info(`initializing ${connData.type}::${serialName}...`);
@@ -562,6 +560,7 @@ class BestinRS485 {
             const ackHex = ((secondByte === 0x28 ? 0x9 : 0x8) << 4) | (cmdHex[iOffset] & 0x0F);
             const packetI = packet[iOffset];
 
+            // console.log(`secondByte: ${secondByte.toString(16)}, ackHex: ${ackHex.toString(16)}, packetI: ${packetI.toString(16)}`);
             if (secondByte === packet[1] && ackHex === packetI) {
                 ackPacket = packet.toString('hex');
                 foundIdx = i;
@@ -572,7 +571,7 @@ class BestinRS485 {
     }
 
     updatePropertiesFromMessage(msgInfo, packet, isCommandResponse) {
-        if (Object.keys(msgInfo).length === 0) return;
+        if (!msgInfo || Object.keys(msgInfo).length === 0) return;
         const parsedProperties = (msgInfo.parseToProperty && packet) ? msgInfo.parseToProperty(packet) : msgInfo;
 
         if (Array.isArray(parsedProperties)) {
@@ -620,15 +619,22 @@ class BestinRS485 {
         }
         serialCmd = this.serialCommandQueue.shift();
 
-        const writeHandle = {
+        let writeHandle = {
             light: this.energyConnection,
             outlet: this.energyConnection,
             fan: this.controlConnection,
             gas: this.controlConnection,
             thermostat: this.controlConnection,
-            doorlock: this.controlConnection,
         }[serialCmd.device];
-        // device port mapping
+
+        if (options.rs485.single_comm) {
+            writeHandle.fan = this.energyConnection;
+            writeHandle.gas = this.energyConnection;
+            writeHandle.thermostat = this.energyConnection;
+        }
+        if (this.setCommandBufferIndex === 1) {
+            writeHandle.gas = this.energyConnection;
+        }
 
         if (!writeHandle) {
             logger.error(`invalid device: ${serialCmd.device}`);
@@ -646,7 +652,7 @@ class BestinRS485 {
             this.serialCommandQueue.push(serialCmd);
             setTimeout(() => this.processCommand(serialCmd), 100);
         } else {
-            logger.error(`command(${serialCmd.device}}) max retry number exceeded!`);
+            logger.error(`command(${serialCmd.device}) max retry number exceeded!`);
             if (serialCmd.callback) {
                 serialCmd.callback.call(this);
             }
@@ -793,6 +799,7 @@ class BestinRS485 {
 
     loginManagement(res, type, session) {
         const isV1 = type === "v1";
+        this.isCostLightV2 = false;
 
         const cookie = () => {
             const cookies = res.headers['set-cookie'];
@@ -829,7 +836,12 @@ class BestinRS485 {
         }
 
         const json = this.checkSessionFile();
-        const lightingType = this.hasSmartLighting ? "smartlight" : "livinglight";
+
+        let lightingType = this.hasSmartLighting ? "smartlight" : "livinglight";
+        if (V2LIGHTCOSTEX.includes(json.url) && lightingType === "livinglight") {
+            lightingType = "light";
+            this.isCostLightV2 = true;
+        }
 
         const statusUrl = isV1
             ? recursiveFormatWithArgs(V1LIGHTSTATUS, options.server.address, json.phpsessid, json.userid, json.username)
@@ -848,6 +860,8 @@ class BestinRS485 {
         try {
             const response = await axios(url);
             const result = this.serverRequestResult(type, response.data);
+
+            //logger.debug(`server lighting status <=== ${JSON.stringify(response.data)}`);
 
             if (result === "ok") {
                 //logger.debug(`server lighting status <=== ${JSON.parse(JSON.stringify(response.data))}`);
@@ -1022,7 +1036,8 @@ class BestinRS485 {
 
                 url = recursiveFormatWithArgs(V2SLIGHTCMD, json.url, JSON.stringify(smartLightData), json['access-token']);
             } else {
-                url = recursiveFormatWithArgs(V2LIGHTCMD, json.url, unit.slice(-1), unit, state, json['access-token']);
+                if (this.isCostLightV2) url = recursiveFormatWithArgs(V2LIGHTCMD, json.url, "light", "1", unit, state, json['access-token']);
+                else url = recursiveFormatWithArgs(V2LIGHTCMD, json.url, "livinglight", unit.slice(-1), unit, state, json['access-token']);
             }
         }
 
