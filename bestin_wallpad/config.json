@@ -50,6 +50,7 @@
         },
         "rs485": {
             "max_retry": 20
+            "single_comm": false
         },
         "log": {
             "to_file": true,
@@ -88,7 +89,8 @@
             "discovery": "bool"
         },
         "rs485": {
-            "max_retry": "int(0,100)"
+            "max_retry": "int(0,100)",
+            "single_comm": "bool"
         },
         "log": {
             "to_file": "bool",
