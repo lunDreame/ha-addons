@@ -139,7 +139,7 @@ const DEVICE_INFO = [
                 for (let i = 0; i < buf[7]; i++) {
                     props.push({
                         device: 'outlet', room: buf[1] & 0x0F,
-                        value: { [`power${i + 1}`]: 0 ? "ON" : "OFF", [`usage${i + 1}`]: (buf[10 + 5 * i] << 8 | buf[10 + 5 * i + 1]) / 10 || 0, [`standby${i + 1}`]: 0 ? "ON" : "OFF" }
+                        value: { [`power${i + 1}`]: (buf[9 + i * 5] & 0x0F) ? "ON" : "OFF", [`usage${i + 1}`]: (buf[10 + 5 * i] << 8 | buf[10 + 5 * i + 1]) / 10 || 0, [`standby${i + 1}`]: (buf[9 + i * 5] >> 4 & 1) ? "ON" : "OFF" }
                     });
                 }
             }
@@ -202,7 +202,6 @@ const DEVICE_INFO = [
         }
     },
 ];
-
 
 class BestinRS485 {
     constructor() {
@@ -380,7 +379,7 @@ class BestinRS485 {
         this.mqttClient.publish(topic, JSON.stringify(payload), { retain: true });
     }
 
-    verifyChecksum(packet) {
+    validateChecksum(packet) {
         let checksum = 3;
 
         for (let i = 0; i < packet.length - 1; i++) {
@@ -395,7 +394,7 @@ class BestinRS485 {
         return true;
     }
 
-    generateChecksum(packet) {
+    calculateChecksum(packet) {
         let checksum = 3;
 
         for (let i = 0; i < packet.length - 1; i++) {
@@ -549,17 +548,18 @@ class BestinRS485 {
     }
 
     findCommandIndex(packet) {
-        const { serialCommandQueue } = this;
+        const { serialCommandQueue, setCommandBufferIndex } = this;
         let ackPacket = "";
         let foundIdx = -1;
 
         for (let i = 0; i < serialCommandQueue.length; i++) {
             const { cmdHex } = serialCommandQueue[i];
             const secondByte = cmdHex[1];
-            const iOffset = (cmdHex.length === 10) ? 2 : 3;
-            const ackHex = ((secondByte === 0x28 ? 0x9 : 0x8) << 4) | (cmdHex[iOffset] & 0x0F);
+            const iOffset = (setCommandBufferIndex === 0 && cmdHex.length === 10) ? 2 : 3;
+            const ackHex = ((secondByte === 0x28 || setCommandBufferIndex === 1 ? 0x9 : 0x8) << 4) | (cmdHex[iOffset] & 0x0F);
             const packetI = packet[iOffset];
 
+            // console.log(`packet: ${packet.toString('hex')}, iOffset: ${iOffset}, secondByte: ${secondByte}`)
             // console.log(`secondByte: ${secondByte.toString(16)}, ackHex: ${ackHex.toString(16)}, packetI: ${packetI.toString(16)}`);
             if (secondByte === packet[1] && ackHex === packetI) {
                 ackPacket = packet.toString('hex');
@@ -693,7 +693,7 @@ class BestinRS485 {
         const restBuffer = Buffer.alloc(devInfoLength - headerBuffer.length);
         const commandBuffer = this.createCommandBuffer(headerBuffer, restBuffer, deviceInfo, room, name, value);
 
-        commandBuffer[devInfoLength - 1] = this.generateChecksum(commandBuffer);
+        commandBuffer[devInfoLength - 1] = this.calculateChecksum(commandBuffer);
 
         this.addCommandToQueue(commandBuffer, device, room, name, value, callback);
     }
