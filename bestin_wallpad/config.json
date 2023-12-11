@@ -54,7 +54,7 @@
         },
         "log": {
             "to_file": true,
-            "level": "info"
+            "level": "silly"
         }
     },
     "schema": {
