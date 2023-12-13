@@ -49,7 +49,7 @@
             "discovery": true
         },
         "rs485": {
-            "max_retry": 20
+            "max_retry": 20,
             "single_comm": false
         },
         "log": {
