@@ -38,24 +38,26 @@
 * Bestin 1.0 
   * 통신단자함 게이트웨이에 아래와 같이 RS485 라인에 연결 (게이트웨이 타입 1)
   * 애드온 포트매핑  ENERGY: energy / CTRL: control
-  ![Bestin 1.0의 게이트웨이](./images/port_1.0.png)
-
+  ![Bestin 1.0의 게이트웨이](./images/gateway_1_.png)
 
   * 게이트웨이가 아래 사진의 경우. **RS485B**에 EW11 연결 (게이트웨이 타입 2)
   * 애드온 포트매핑  energy
-  ![Bestin 1.0 타입2의 게이트웨이](./images/gateway_2.jpg)
+  ![Bestin 1.0 타입2의 게이트웨이](./images/gateway_1_2.png)
+
+
+
 * Bestin 1.0 일체형
   * 월패드 후면 CTRL 랜선을 브릿지 하여 브릿지 한 랜선 중 흰주/주, 흰파/파 EW11 각각 연결 (환경에 따라 다른 속선 이거나 랜선일 수 있음)
   * 애드온 포트매핑  흰주/주: energy / 흰파/파: control
-  ![Bestin 1.0 일체형의 게이트웨이](./images/port_one.jpg)
+  ![Bestin 1.0 일체형의 게이트웨이](./images/gateway_1_1.png)
 
 
 
 * Bestin 2.0
   * 아래와 같이 포트가 나눠져 있는 경우, 에너지컨트롤러 1개, 미세먼지 포트 1개에 랜선 연결 (Lan 선을 잘라서 흰파/파 EW11에 연결)
   * 애드온 포트매핑  에너지컨트롤러: energy / 미세먼지: control
-  ![Bestin 2.0의 게이트웨이](./images/port.png)
-  ![Bestin 2.0의 게이트웨이](./images/port_connect.png)
+  ![Bestin 2.0의 게이트웨이](./images/gateway_2_.png)
+  ![Bestin 2.0의 게이트웨이](./images/gateway_2_port_conn.png)
 
 
 
