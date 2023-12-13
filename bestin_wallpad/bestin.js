@@ -234,8 +234,7 @@ class BestinRS485 {
         const client = mqtt.connect({
             host: options.mqtt.broker,
             port: options.mqtt.port,
-            username: options.mqtt.username,
-            password: options.mqtt.password,
+            ...(options.mqtt.username && options.mqtt.password ? { username: options.mqtt.username, password: options.mqtt.password } : {}),
         });
 
         client.on('connect', () => {
