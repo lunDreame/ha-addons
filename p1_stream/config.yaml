@@ -1,0 +1,38 @@
+version: 1.0.1
+slug: p1_stream
+name: p1stream
+description: Supports Bambu Lab P1 Printer Camera RTSP Stream.
+url: https://github.com/lunDreame/ha-addons/tree/main/p1_stream
+arch:
+  - aarch64
+  - amd64
+boot: manual
+image: harwin1/p1stream-ha
+init: false
+startup: system
+ports:
+  1984/tcp: null
+  8554/tcp: 8554
+ports_description:
+  1984/tcp: Web interface (Not required for Ingress)
+  8554/tcp: RSTP
+hassio_api: false
+ingress: true
+ingress_port: 1984
+panel_icon: mdi:camera
+map:
+  - addon_config:rw
+options:
+  PRINTER_ADDRESS: null
+  PRINTER_ACCESS_CODE: null
+  UI_USERNAME: p1stream
+  UI_PASSWORD: p1stream
+  RTSP_USERNAME: p1stream
+  RTSP_PASSWORD: p1stream
+schema:
+  PRINTER_ADDRESS: str
+  PRINTER_ACCESS_CODE: password
+  UI_USERNAME: str
+  UI_PASSWORD: password
+  RTSP_USERNAME: str
+  RTSP_PASSWORD: password
