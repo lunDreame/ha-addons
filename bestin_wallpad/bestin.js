@@ -188,13 +188,16 @@ const DEVICE_INFO = [
                 for (const h of HEMSELEM) {
                     props.push({
                         device: 'energy', room: h,
-                        value: { 'total': parseInt(buf.slice(HEMSMAP[h][0], HEMSMAP[h][1]).toString('hex')), 'realt': parseInt(buf.slice(i, i + 2).toString('hex')) }
+                        value: { 'total': parseInt(buf.slice(HEMSMAP[h][0][0], HEMSMAP[h][0][1]).toString('hex')), 'realt': parseInt(buf.slice(i, i + 2).toString('hex')) }
                     });
                     i += 8;
                 }
             } else {
                 for (const h of ["electric", "water", "gas"]) {
-                    props.push({ device: 'energy', room: h, value: { 'realt': parseInt(buf.slice(i, i + 2).toString('hex')) } });
+                    props.push({
+                        device: 'energy', room: h,
+                        value: { 'total': parseInt(buf.slice(HEMSMAP[h][1][0], HEMSMAP[h][1][1]).toString('hex')), 'realt': parseInt(buf.slice(i, i + 2).toString('hex')) }
+                    });
                     i += 8;
                 }
             }
@@ -234,7 +237,9 @@ class BestinRS485 {
         const client = mqtt.connect({
             host: options.mqtt.broker,
             port: options.mqtt.port,
-            ...(options.mqtt.username && options.mqtt.password ? { username: options.mqtt.username, password: options.mqtt.password } : {}),
+            ...(options.mqtt.username && options.mqtt.password ? { username: options.mqtt.username, password: options.mqtt.password } : {}), // Set Username / Password
+            keepalive: 60,
+            clean: true,
         });
 
         client.on('connect', () => {
@@ -356,7 +361,10 @@ class BestinRS485 {
             payload['name'] = format(payload['name'], this.mqttPrefix, room, name.replace(/power|switch/g, ''));
 
             if (device === 'energy') {
-                const measurementUnit = HEMSUNIT[room + '_' + name];
+                let measurementUnit = HEMSUNIT[room + '_' + name];
+                if (measurementUnit.length === 2) {
+                    measurementUnit = measurementUnit[this.setCommandBufferIndex === 0 ? 0 : 1];
+                }
 
                 payload['unit_of_meas'] = measurementUnit[0];
                 if (measurementUnit[1]) payload['dev_cla'] = measurementUnit[1];
@@ -560,7 +568,7 @@ class BestinRS485 {
 
             // console.log(`packet: ${packet.toString('hex')}, iOffset: ${iOffset}, secondByte: ${secondByte}`)
             // console.log(`secondByte: ${secondByte.toString(16)}, ackHex: ${ackHex.toString(16)}, packetI: ${packetI.toString(16)}`);
-            if (secondByte === packet[1] && ackHex === packetI) {
+            if (secondByte === packet[1] && (ackHex === packetI || 0x81 === packetI)) {
                 ackPacket = packet.toString('hex');
                 foundIdx = i;
                 break;
@@ -742,14 +750,13 @@ class BestinRS485 {
     // HDC Server
 
     serverCreate(type) {
-        const loginUrl = type === "v1"
+        this.loginUrl = type === "v1"
             ? recursiveFormatWithArgs(V1LOGIN, options.server.address, options.server.username, options.server.password)
             : recursiveFormatWithArgs(V2LOGIN, options.server.uuid);
 
-        const loginFunc = type === "v1" ? this.serverLogin.bind(this) : this.serverLogin2.bind(this);
+        this.loginFunc = type === "v1" ? this.serverLogin.bind(this) : this.serverLogin2.bind(this);
 
-        loginFunc('login', loginUrl);
-        setInterval(loginFunc, 3600000, 'refresh', loginUrl);
+        this.loginFunc('login', this.loginUrl);
     }
 
     async serverLogin2(session, url) {
@@ -767,8 +774,6 @@ class BestinRS485 {
                 this.loginManagement(response.data, 'v2', session);
             }
         } catch (error) {
-            if (error instanceof ReferenceError) return;
-
             logger.error(`server2 login fail. return with: ${error}`);
         }
     }
@@ -790,8 +795,6 @@ class BestinRS485 {
                 logger.info(`server session ${session} fail. [${response.data.ret}]`);
             }
         } catch (error) {
-            if (error instanceof ReferenceError) return;
-
             logger.error(`server login fail. return with: ${error}`);
         }
     }
@@ -873,8 +876,10 @@ class BestinRS485 {
             /** If the response value is empty, the session is considered expired and you attempted to reconnect,
             but the function runs, but the response variable is not resolvable, so it is pending. */
         } catch (error) {
-            if (error instanceof ReferenceError) return;
-
+            if (error.includes("(reading 'imap')")) { // Session Expiration
+                this.loginFunc("refresh", this.loginUrl); // Reconnect
+                return;
+            }
             logger.error(`failed to retrieve server light status: ${error}`);
         }
     }
@@ -1063,8 +1068,6 @@ class BestinRS485 {
 
             this.updatePropertiesFromMessage(deviceProps);
         } catch (error) {
-            if (error instanceof ReferenceError) return;
-
             logger.error(`failed to retrieve server light command: ${error}`);
         }
     }
@@ -1087,8 +1090,6 @@ class BestinRS485 {
                 logger.info('server elevator command request fail!');
             }
         } catch (error) {
-            if (error instanceof ReferenceError) return;
-
             logger.error(`failed to retrieve server ev command: ${error}`);
         }
     }
