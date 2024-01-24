@@ -102,22 +102,22 @@ const HEMSUNIT = {
     "electric_total": ["kWh", "energy", "{{ (value | float / 100) }}"],
     "electric_realt": ["W", "power"],
     "water_total": ["m³", "water", "{{ (value | float / 1000) | round(2) }}"],
-    "water_realt": ["m³/h", ""],
+    "water_realt": [["m³/h", ""], ["m³/h", "{{ (value | float / 1000) }}"]],
     "hotwater_total": ["m³", "", "{{ (value | float / 1000) | round(2) }}"],
     "hotwater_realt": ["m³/h", ""],
     "gas_total": ["m³", "gas", "{{ (value | float / 1000) | round(2) }}"],
-    "gas_realt": ["m³/h", ""],
+    "gas_realt": [["m³/h", ""], ["m³/h", "{{ (value | float / 10) }}"]],
     "heat_total": ["m³", "", "{{ (value | float / 1000) | round(2) }}"],
     "heat_realt": ["m³/h", ""],
 };
 
 // Total energy usage
 const HEMSMAP = {
-    "electric": [8, 12],
-    "water": [17, 20],
-    "hotwater": [24, 28],
-    "gas": [32, 36],
-    "heat": [40, 44],
+    "electric": [[8, 12], [8, 12]],
+    "water": [[17, 20], [17, 20]],
+    "hotwater": [[24, 28], [24, 28]],
+    "gas": [[32, 36], [25, 29]],
+    "heat": [[40, 44], [40, 44]],
 };
 
 function findVentTempValue(val) {
@@ -158,7 +158,7 @@ const DISCOVERY_DEVICE = {
     "name": "bestin_wallpad",
     "mf": "HDC BESTIN",
     "mdl": "Bestin Wallpad",
-    "sw": "iluna8/ha-addons/bestin_wallpad",
+    "sw": "lunDreame/ha-addons/bestin_wallpad",
 };
 
 const DISCOVERY_PAYLOAD = {
