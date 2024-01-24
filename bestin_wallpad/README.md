@@ -36,26 +36,26 @@
 * Bestin 1.0 
   * 통신단자함 게이트웨이에 아래와 같이 RS485 라인에 연결 (게이트웨이 타입 1)
   * 애드온 포트매핑  ENERGY: energy / CTRL: control
-  ![Bestin 1.0의 게이트웨이](./images/gateway_1_.png)
+  ![Bestin 1.0의 게이트웨이](https://raw.githubusercontent.com/lunDreame/ha-addons/main/bestin_wallpad/images/gateway_1_.png)
 
   * 게이트웨이가 아래 사진의 경우. **RS485B**에 EW11 연결 (게이트웨이 타입 2)
   * 애드온 포트매핑  energy
-  ![Bestin 1.0 타입2의 게이트웨이](./images/gateway_1_2.png)
+  ![Bestin 1.0 타입2의 게이트웨이](https://raw.githubusercontent.com/lunDreame/ha-addons/main/bestin_wallpad/images/gateway_1_2.png)
 
 
 
 * Bestin 1.0 일체형
   * 월패드 후면 CTRL 랜선을 브릿지 하여 브릿지 한 랜선 중 흰주/주, 흰파/파 EW11 각각 연결 (환경에 따라 다른 속선 이거나 랜선일 수 있음)
   * 애드온 포트매핑  흰주/주: energy / 흰파/파: control
-  ![Bestin 1.0 일체형의 게이트웨이](./images/gateway_1_1.png)
+  ![Bestin 1.0 일체형의 게이트웨이](https://raw.githubusercontent.com/lunDreame/ha-addons/main/bestin_wallpad/images/gateway_1_1.png)
 
 
 
 * Bestin 2.0
   * 아래와 같이 포트가 나눠져 있는 경우, 에너지컨트롤러 1개, 미세먼지 포트 1개에 랜선 연결 (Lan 선을 잘라서 흰파/파 EW11에 연결)
   * 애드온 포트매핑  에너지컨트롤러: energy / 미세먼지: control
-  ![Bestin 2.0의 게이트웨이](./images/gateway_2_.png)
-  ![Bestin 2.0의 게이트웨이](./images/gateway_2_port_conn.png)
+  ![Bestin 2.0의 게이트웨이](https://raw.githubusercontent.com/lunDreame/ha-addons/main/bestin_wallpad/images/gateway_2_.png)
+  ![Bestin 2.0의 게이트웨이](https://raw.githubusercontent.com/lunDreame/ha-addons/main/bestin_wallpad/images/gateway_2_port_conn.png)
 
 
 
@@ -104,7 +104,7 @@
 ### 애드온 설치, 실행
 
 1. 홈어시스턴트의 Supervisor --> Add-on store에서 우상단 메뉴( ⋮ )를 누른 후 "repositories" 선택합니다.
-2. "Add repository" 영역에 위 주소를 입력한 후 추가하기 버튼을 누릅니다. (https://github.com/iluna8/ha-addons)
+2. "Add repository" 영역에 위 주소를 입력한 후 추가하기 버튼을 누릅니다. (https://github.com/lunDreame/ha-addons)
 3. homeassistant 재부팅 한 후 애드온 스토어 하단에 나타난 "HDC BESTIN WallPad RS485 Addon" 을 선택합니다.
 4. "INSTALL" 버튼을 누른 후 "START" 가 나타날 때까지 기다립니다. (수 분 이상 걸릴 수 있습니다)
     1. 설치 중 오류가 발생하면 Supervisor -> System의 System log 최하단을 확인해 봐야 합니다.
@@ -198,11 +198,11 @@
 
 - [HomeAssistant 네이버 카페 (질문, 수정 제안 등)](https://cafe.naver.com/koreassistant)
 
-- [Github issue 페이지 (버그 신고, 수정 제안 등)](https://github.com/harwin1/bestin-v1/issues)
+- [Github issue 페이지 (버그 신고, 수정 제안 등)](https://github.com/lunDreame/ha-addons/issues)
 
 
 ---
-![카카오톡 기부 QR코드](./images/donation_kakao.png)
+![카카오톡 기부 QR코드](https://raw.githubusercontent.com/lunDreame/ha-addons/main/bestin_wallpad/images/donation_kakao.png)
 * https://qr.kakaopay.com/FWDWOBBmR 
     
 [aarch64-shield]: https://img.shields.io/badge/aarch64-yes-green.svg
