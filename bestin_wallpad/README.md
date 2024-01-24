@@ -153,6 +153,7 @@
 * scan_interval
   * 서버에서 상태 정보를 가져오는 주기 (단위 second)
   * 0으로 설정하면 서버 상태를 업데이트하지 않습니다.
+  * wallpadmain 프로세스가 다운된다면 인터벌을 늘리거나 상황에 맞게 조정하세요.
   #### __Bestin 1.0__
   * username / password
     * i-parklife의 id/passwd 입력해 주세요.
