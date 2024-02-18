@@ -1,6 +1,6 @@
 {
     "name": "HDC BESTIN WallPad RS485 Addon",
-    "version": "1.9.2",
+    "version": "1.9.3",
     "slug": "bestin_wallpad",
     "description": "현대산업개발 베스틴 월패드용 애드온입니다.",
     "arch": [
@@ -50,11 +50,12 @@
         },
         "rs485": {
             "max_retry": 20,
-            "single_comm": false
+            "single_comm": false,
+            "dump_log": false
         },
         "log": {
             "to_file": true,
-            "level": "silly"
+            "debug_mode": false
         }
     },
     "schema": {
@@ -90,11 +91,12 @@
         },
         "rs485": {
             "max_retry": "int(0,100)",
-            "single_comm": "bool"
+            "single_comm": "bool",
+            "dump_log": "bool"
         },
         "log": {
             "to_file": "bool",
-            "level": "list(silly|info|error|warn)"
+            "debug_mode": "bool"
         }
     }
 }
