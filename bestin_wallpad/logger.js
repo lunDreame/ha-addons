@@ -1,8 +1,7 @@
 const winston = require('winston');
 const { combine, timestamp, printf } = winston.format;
-const { to_file, level } = require('/data/options.json').log;
+const options = require('/data/options.json');
 
-/** Log Output Format */ 
 const format = winston.format.combine(
     winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
     winston.format.printf(
@@ -10,7 +9,6 @@ const format = winston.format.combine(
     ),
 )
 
-/** File Save Settings */
 const fileTransport = new winston.transports.File({
     filename: `./logs/${new Date().toISOString().slice(0, 10)}.log`,
     maxFiles: 7,
@@ -18,37 +16,30 @@ const fileTransport = new winston.transports.File({
     tailable: true,
 });
 
-/** Settings by Log Level */
 const logger = winston.createLogger({
-    level: level,
+    level: options.log.debug_mode ? 'silly' : 'info',
     format: combine(timestamp(), format),
     transports: [
         new winston.transports.Console(),
     ],
 });
 
-/** Add file save settings when to_file is true */
-if (to_file) {
-    logger.add(fileTransport);
-}
+const filter = winston.format((info, opts) => {
+    if (info.message.includes("SERIAL")) {
+        if (options.rs485.dump_log) {
+            info.message = info.message.replace("SERIAL", "");
+            return info;
+        } else {
+            return false;
+        }
+    }
+    return info;
+});
 
-/** File storage settings based on log level */
-switch (level) {
-    case 'silly':
-        fileTransport.level = 'silly';
-        break;
-    case 'info':
-        fileTransport.level = 'info';
-        break;
-    case 'error':
-        fileTransport.level = 'error';
-        break;
-    case 'warn':
-        fileTransport.level = 'warn';
-        break;
-    case 'debug':
-        fileTransport.level = 'debug';
-        break;
+logger.add(filter());
+
+if (options.log.to_file) {
+    logger.add(fileTransport);
 }
 
 module.exports = logger;
