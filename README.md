@@ -18,7 +18,7 @@ This repository contains the following add-ons
 
 This add-on is for the bestin `1.0, 2.0` wallpad user
 
-### [EasyRoll Smart Blind add-on](./esayroll_blind)
+### [EasyRoll Smart Blind add-on](./easyroll_blind)
 
 ![Supports aarch64 Architecture][aarch64-shield]
 ![Supports amd64 Architecture][amd64-shield]
