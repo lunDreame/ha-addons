@@ -440,8 +440,8 @@ class BestinRS485 {
             });
 
             this.serial.on('data', (buffer) => {
-                logger.debug(buffer.toString('hex'), "SERIAL");
-                this.processBufferChunks(buffer);
+                logger.debug(buffer.toString('hex'));
+                this.findAndSplitBuffer(buffer);
             });
             this.serial.on('open', () => {
                 logger.info(`successfully opened ${serialName} port: ${connData.path}`);
@@ -460,8 +460,8 @@ class BestinRS485 {
             });
 
             this.socket.on('data', (buffer) => {
-                logger.debug(buffer.toString('hex'), "SERIAL");
-                this.processBufferChunks(buffer);
+                logger.debug(buffer.toString('hex'));
+                this.findAndSplitBuffer(buffer);
             });
             this.socket.on('end', () => {
                 logger.info(`disconnected from ${serialName} server`);
@@ -475,17 +475,6 @@ class BestinRS485 {
         }
 
         return (this.serial, this.socket);
-    }
-
-    processBufferChunks(buffer) {
-        let offset = 0;
-        const step = 1024;
-        while (offset < buffer.length) {
-            const chunk = buffer.slice(offset, offset + step);
-            this.findAndSplitBuffer(chunk);
-
-            offset += step;
-        }
     }
 
     findAndSplitBuffer(buffer) {
