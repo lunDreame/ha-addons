@@ -1,10 +1,10 @@
 const winston = require('winston');
 const { combine, timestamp, printf } = winston.format;
-const options = require('/data/options.json');
+const { to_file, debug_mode } = require('/data/options.json').log;
 
-const format = winston.format.combine(
-    winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-    winston.format.printf(
+const format = combine(
+    timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+    printf(
         (info) => `${info.timestamp} ${info.level.toUpperCase()}  ${info.message}`,
     ),
 )
@@ -17,28 +17,14 @@ const fileTransport = new winston.transports.File({
 });
 
 const logger = winston.createLogger({
-    level: options.log.debug_mode ? 'silly' : 'info',
+    level: (debug_mode ? 'silly' : 'info'),
     format: combine(timestamp(), format),
     transports: [
         new winston.transports.Console(),
     ],
 });
 
-const filter = winston.format((info, opts) => {
-    if (info.message.includes("SERIAL")) {
-        if (options.rs485.dump_log) {
-            info.message = info.message.replace("SERIAL", "");
-            return info;
-        } else {
-            return false;
-        }
-    }
-    return info;
-});
-
-logger.add(filter());
-
-if (options.log.to_file) {
+if (to_file) {
     logger.add(fileTransport);
 }
 
