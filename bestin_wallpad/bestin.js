@@ -229,7 +229,7 @@ class BestinRS485 {
             this.serverCreate(options.server_type);
             this.shouldRegisterSrvEV = options.server_type === "v2";
             this.hasSmartLighting = options.server_type === "v2" && options.smart_lighting;
-            this.lightStatusInterval = null;  
+            this.lightStatusInterval = null;
         } else {
             this.isServerEnabled = false;
         }
@@ -255,6 +255,7 @@ class BestinRS485 {
 
             if (this.shouldRegisterSrvEV && fs.existsSync('./session.json')) {
                 logger.info("registering elevator srv...");
+                logger.debug(`Setting up elevator device: ${JSON.stringify(fs.readFileSync('./session.json'))}`);
                 this.serverCommand('elevator', null, JSON.parse(fs.readFileSync('./session.json')));
             }
         });
@@ -278,6 +279,7 @@ class BestinRS485 {
             logger.warn("MQTT is not ready yet");
             return;
         }
+        logger.debug(`MQTT Topic: ${topic}, Message: ${message.toString()}`);
         let topics = topic.split('/');
         let value = message.toString();
         let json;
@@ -291,6 +293,7 @@ class BestinRS485 {
         if (this.isServerEnabled && this.checkSessionFile()) {
             json = this.checkSessionFile();
         }
+        logger.debug(`Checking Session - Is Server Enabled: ${this.isServerEnabled}, Session File Data: ${JSON.stringify(this.checkSessionFile())}`);
 
         if ((topics[2] === "0" && ['light', 'slight'].includes(topics[1])) || topics[1] === "elevator") {
             this.serverCommand(topics, value, json);
@@ -301,8 +304,6 @@ class BestinRS485 {
 
             this.setCommandProperty(device, room, name, value, timeStamp?.[1] || 0x0);
         }
-        // logger.debug(`MQTT Received  Topic: ${topic} Message: ${message.toString()}, Session: ${json}`)
-
     }
 
     checkSessionFile() {
@@ -320,9 +321,7 @@ class BestinRS485 {
                 logger.warn('no data in the session.json file.');
                 return false;
             }
-
             const jsonData = JSON.parse(fileData);
-            // logger.debug(`Bestin server Session JSON: ${JSON.stringify(jsonData)}`)
 
             if (Object.keys(jsonData).length === 0) {
                 logger.warn('session.json file empty JSON object');
@@ -340,6 +339,7 @@ class BestinRS485 {
             return;
         }
         const topic = `${this.mqttPrefix}/${device}/${room}/${name}/state`;
+        logger.debug(`Update MQTT Topic: ${topic}, Value: ${value}`);
 
         if (typeof value !== "number") {
             logger.info(`publish to MQTT: ${topic} = ${value}`);
@@ -440,6 +440,7 @@ class BestinRS485 {
             });
 
             this.serial.on('data', (buffer) => {
+                logger.debug(buffer.toString('hex'));
                 this.findAndSplitBuffer(buffer);
             });
             this.serial.on('open', () => {
@@ -459,6 +460,7 @@ class BestinRS485 {
             });
 
             this.socket.on('data', (buffer) => {
+                logger.debug(buffer.toString('hex'));
                 this.findAndSplitBuffer(buffer);
             });
             this.socket.on('end', () => {
@@ -468,7 +470,7 @@ class BestinRS485 {
                 logger.error(`${serialName} connection error (${err.message}) occurred`);
             });
             this.socket.on('timeout', () => {
-                this.log.error(`${serialName} connection timed out`);
+                logger.error(`${serialName} connection timed out`);
             });
         }
 
@@ -500,18 +502,15 @@ class BestinRS485 {
     }
 
     handlePacket(packet) {
-        // console.log('recive packet:', packet.toString('hex'))
-        // logger.debug('Received Packet:', packet.toString('hex'))
-
         this.lastReceivedTimestamp = new Date();
         this.isCommandIndex = false;
 
-        // if (packet[0] === 0x02) {
+        //if (packet[0] === 0x02) {
         //    this.synchronizedTime = this.lastReceivedTimestamp;
-        // }
+        //}
         if (!this.isCommandIndex && packet.slice(2, 4).toString('hex') === '1491') {
             this.setCommandBufferIndex = 1;
-            // logger.debug(`Set AIO gateway Mode, bufferIndex: 1`);
+            logger.debug(`All-in-one Gateway - Index: ${this.setCommandBufferIndex}, Packet Slice: ${packet.slice(2, 4).toString('hex')}`);
             this.isCommandIndex = true;
         }
 
@@ -576,13 +575,10 @@ class BestinRS485 {
             const ackHex = ((secondByte === 0x28 || setCommandBufferIndex === 1 ? 0x9 : 0x8) << 4) | (cmdHex[iOffset] & 0x0F);
             const packetI = packet[iOffset];
 
-            // console.log(`packet: ${packet.toString('hex')}, iOffset: ${iOffset}, secondByte: ${secondByte}`)
-            // console.log(`secondByte: ${secondByte.toString(16)}, ackHex: ${ackHex.toString(16)}, packetI: ${packetI.toString(16)}`);
-            // logger.debug(`Device ACK response :: CmdHex: ${cmdHex}, SecondByte: ${secondByte}, IOffset: ${iOffset}, AckHex: ${ackHex}, PacketI: ${packetI}`);
+            logger.debug(`Serial command - 2BYTE-P1: [${secondByte}|${packet[1]}] ACKHEX-PI: [${ackHex}|${packetI}]`);
             if (secondByte === packet[1] && (ackHex === packetI || 0x81 === packetI)) {
                 ackPacket = packet.toString('hex');
                 foundIdx = i;
-                // logger.debug(`Device ACK match :: AckPacket: ${ackHex}, FoundIdx: ${foundIdx}`);
                 break;
             }
         }
@@ -623,12 +619,11 @@ class BestinRS485 {
         };
 
         this.serialCommandQueue.push(serialCmd);
-        // logger.debug(`Send Command Options: ${serialCmd}`);
+        logger.debug(`Serial Queue: ${serialCmd}`);
         logger.info(`send to device: ${cmdHex.toString('hex')}`);
 
         const elapsed = serialCmd.sentTime - this.synchronizedTime;
         const delay = (elapsed < 100) ? 100 - elapsed : 0;
-        // 100ms after
 
         setTimeout(() => this.processCommand(serialCmd), delay);
     }
@@ -661,7 +656,7 @@ class BestinRS485 {
             return;
         }
 
-        // logger.debug(`Set write Device Select: ${writeHandle}`);
+        logger.debug(`Set write device: ${writeHandle}`);
         try {
             writeHandle.write(serialCmd.cmdHex);
         } catch (error) {
@@ -738,9 +733,8 @@ class BestinRS485 {
         }
         deviceStatus.property[name] = value;
 
-        // client update
         this.updateMqttClient(device, room, name, value);
-        // mqtt discovery
+        /////////////////////////
         this.performDiscovery(device, room, name);
     }
 
@@ -774,44 +768,34 @@ class BestinRS485 {
     }
 
     async serverLogin2(session, url) {
-        // logger.debug(`Server2 Login URL :: ${JSON.stringify(url)}`);
-
         try {
             const response = await axios(url);
 
             if (session === "refresh") logger.info("server2 session refreshing...");
 
             if (response.status !== 500) {
-                //// logger.debug(`server2 login <=== ${JSON.stringify(response.data)}`);
                 logger.info(`server2 session ${session} successful!`);
 
                 this.loginManagement(response.data, 'v2', session);
             }
-            // logger.debug(`Server2 Login response :: ${JSON.stringify(response.data)}, StatusCode: ${response.status}`);
-
         } catch (error) {
             logger.error(`server2 login fail. return with: ${error}`);
         }
     }
 
     async serverLogin(session, url) {
-        // logger.debug(`Server Login URL :: ${JSON.stringify(url)}`);
-
         try {
             const response = await axios(url);
 
             if (session === "refresh") logger.info("server session refreshing...");
 
             if (response.data.ret === "success") {
-                // logger.debug(`server login <=== ${JSON.stringify(response.data)}`);
                 logger.info(`server session ${session} successful!`);
 
                 this.loginManagement(response, 'v1', session);
             } else {
                 logger.info(`server session ${session} fail. [${response.data.ret}]`);
             }
-            // logger.debug(`Server Login response :: ${JSON.stringify(response.data)}, ret: ${response.data.ret}, StatusCode: ${response.status}`);
-
         } catch (error) {
             logger.error(`server login fail. return with: ${error}`);
         }
@@ -834,7 +818,7 @@ class BestinRS485 {
                 userid: cookieMap['user_id'],
                 username: cookieMap['user_name'],
             };
-            //// logger.debug(`Server request cookie: ${JSON.parse(JSON.stringify(cookieMap))}`);
+            logger.debug(`Server-login cookie: ${JSON.stringify(cookieMap)}`);
 
             if (!cookieJson) {
                 logger.warn("unable to assign parsed login cookie information to cookieInfo from server");
@@ -860,7 +844,6 @@ class BestinRS485 {
 
         let lightingType = this.hasSmartLighting ? "smartlight" : "livinglight";
         if (V2LIGHTCOSTEX.includes(json.url) && lightingType === "livinglight") {
-            // logger.debug(`v2 light cost-saving lighting: ${json.url}`)
             lightingType = "light";
             this.isCostLightV2 = true;
         }
@@ -872,35 +855,27 @@ class BestinRS485 {
         this.getServerLightStatus(statusUrl, type, 'state');
 
         if (options.server.scan_interval !== 0) {
-            // logger.debug(`Server Light Update! sec. ${options.server.scan_interval}, url: ${JSON.stringify(statusUrl)} type: ${type}`)
             this.resetLightStatusInterval(statusUrl, type, 'refresh');
         }
     }
 
     async getServerLightStatus(url, type, session) {
-        // logger.debug(`Server lighting status .Req :: ${JSON.stringify(url)}`);
-
         try {
             const response = await axios(url);
             const result = this.serverRequestResult(type, response.data);
 
-            // logger.debug(`Server lighting status .Res :: ${type === "v2" ? JSON.stringify(response.data) : JSON.parse(JSON.stringify(response.data))}, Result: ${result}`);
-
             if (result === "ok") {
-                //// logger.debug(`server lighting status <=== ${JSON.parse(JSON.stringify(response.data))}`);
                 logger.info('server light status request successful!');
 
                 type === "v1" ? this.parseXmlLightStatus(response.data) : this.parseJsonLightStatus(response.data);
             } else {
                 logger.warn(`failed to update lighting status. Result: ${result}`);
             }
-            /** If the response value is empty, the session is considered expired and you attempted to reconnect,
-            but the function runs, but the response variable is not resolvable, so it is pending. */
         } catch (error) {
-            // logger.debug(`Error message: ${error.message}, Error: ${error}`)
-            if (error.message.includes("(reading 'imap')")) { // Session Expiration
-                //logger.debug(`Session expiration!, Reconnecting...`)
-                this.loginFunc("refresh", this.loginUrl); // Reconnect
+            if (error.message.includes("(reading 'imap')")) {
+                logger.debug(`Session expired.`);
+
+                this.loginFunc("refresh", this.loginUrl);
                 return;
             }
             logger.error(`failed to retrieve server light status: ${error}`);
@@ -976,7 +951,6 @@ class BestinRS485 {
             let deviceProps = { device: '', room: '0', value: {} };
 
             if (this.hasSmartLighting && unit.dimming !== 'null') {
-                /** smart lighting factor verification required (dimming? color?) */
                 deviceProps = {
                     device: 'slight',
                     value: { [`switch${unit.unit}`]: unit.state.toUpperCase(), brightness: unit.dimming, colorTemp: this.mapColorValueInRange(unit.color, 1, 10, 500, 153) }
@@ -991,11 +965,11 @@ class BestinRS485 {
 
         if (Array.isArray(units)) {
             for (const unit of units) {
-                // logger.debug(`v2 Light Set process unit: One smart dimming The rest is normal`)
-                processUnit(unit);  // if the living room light is one smart light or one smart light, the other general light
+                logger.debug(`Smart-light status - Count: several, Units: ${units}`);
+                processUnit(unit);
             }
         } else {
-            // logger.debug(`v2 Light Set process unit: Only one smart dimming`)
+            logger.debug(`Smart-light status - Count: single, Units: ${units}`);
             processUnit(units);
         }
     }
@@ -1069,7 +1043,6 @@ class BestinRS485 {
         } else {
             if (this.hasSmartLighting) {
                 const smartLightData = this.slightDataCopy(this.smartLightDataArray?.find(item => item.unit === (stype === 'slight' ? '1' : unit.slice(-1))), unit, state);
-                // logger.debug(`Smart Light command array: ${this.smartLightDataArray}`);
                 url = recursiveFormatWithArgs(V2SLIGHTCMD, json.url, JSON.stringify(smartLightData), json['access-token']);
             } else {
                 if (this.isCostLightV2) url = recursiveFormatWithArgs(V2LIGHTCMD, json.url, "light", "1", unit, state, json['access-token']);
@@ -1083,18 +1056,14 @@ class BestinRS485 {
     async serverLightCommand(stype, unit, state, type, json) {
         const url = this.serverlightCommandManager(stype, unit, state, type, json);
 
-        // logger.debug(`Server lighting command .Req :: ${JSON.stringify(url)}`);
-
         try {
             const response = await axios(url);
             const result = this.serverRequestResult(type, response.data);
-            // logger.debug(`Server lighting command .Res :: ${JSON.parse(JSON.stringify(response.data))}, Result: ${result}`);
 
             if (result !== "ok") {
                 logger.warn(`failed to server lighting command. Result: ${result}`);
                 return;
             }
-            //// logger.debug(`server lighting command <=== ${JSON.parse(JSON.stringify(response.data))}`);
             logger.info("server livinglight command request successful!");
 
             const deviceProps = { device: stype, room: '0', value: { [unit]: state } };
@@ -1110,14 +1079,10 @@ class BestinRS485 {
             logger.warn("please check the server.address of the add-on configuration");
             return;
         }
-        // logger.debug(`Server Elevator command .Req :: ${JSON.stringify(url)}, wallPad IP: ${url.data.address}`);
 
         try {
             const response = await axios(url);
 
-            // logger.debug(`Server Elevator command .Res :: ${JSON.stringify(response.data)}`);
-
-            //logger.info(`server ev command  <=== ${JSON.stringify(response.data)}`);
             if (response.data.result === 'ok') {
                 logger.info('server elevator command request successful!');
                 this.getServerEVStatus(json, response.data, url.data.address);

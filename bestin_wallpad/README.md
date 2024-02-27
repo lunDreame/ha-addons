@@ -36,26 +36,26 @@
 * Bestin 1.0 
   * 통신단자함 게이트웨이에 아래와 같이 RS485 라인에 연결 (게이트웨이 타입 1)
   * 애드온 포트매핑  ENERGY: energy / CTRL: control
-  ![Bestin 1.0의 게이트웨이](https://raw.githubusercontent.com/lunDreame/ha-addons/main/bestin_wallpad/images/gateway_1_.png)
+  ![Bestin 1.0의 게이트웨이](https://raw.githubusercontent.com/lunDreame/ha-addons/main/bestin_wallpad/images/gateway1.0_type1.png)
 
   * 게이트웨이가 아래 사진의 경우. **RS485B**에 EW11 연결 (게이트웨이 타입 2)
   * 애드온 포트매핑  energy
-  ![Bestin 1.0 타입2의 게이트웨이](https://raw.githubusercontent.com/lunDreame/ha-addons/main/bestin_wallpad/images/gateway_1_2.png)
+  ![Bestin 1.0 타입2의 게이트웨이](https://raw.githubusercontent.com/lunDreame/ha-addons/main/bestin_wallpad/images/gateway1.0_type2.png)
 
 
 
 * Bestin 1.0 일체형
   * 월패드 후면 CTRL 랜선을 브릿지 하여 브릿지 한 랜선 중 흰주/주, 흰파/파 EW11 각각 연결 (환경에 따라 다른 속선 이거나 랜선일 수 있음)
   * 애드온 포트매핑  흰주/주: energy / 흰파/파: control
-  ![Bestin 1.0 일체형의 게이트웨이](https://raw.githubusercontent.com/lunDreame/ha-addons/main/bestin_wallpad/images/gateway_1_1.png)
+  ![Bestin 1.0 일체형의 게이트웨이](https://raw.githubusercontent.com/lunDreame/ha-addons/main/bestin_wallpad/images/gateway1.0_aio.png)
 
 
 
 * Bestin 2.0
   * 아래와 같이 포트가 나눠져 있는 경우, 에너지컨트롤러 1개, 미세먼지 포트 1개에 랜선 연결 (Lan 선을 잘라서 흰파/파 EW11에 연결)
   * 애드온 포트매핑  에너지컨트롤러: energy / 미세먼지: control
-  ![Bestin 2.0의 게이트웨이](https://raw.githubusercontent.com/lunDreame/ha-addons/main/bestin_wallpad/images/gateway_2_.png)
-  ![Bestin 2.0의 게이트웨이](https://raw.githubusercontent.com/lunDreame/ha-addons/main/bestin_wallpad/images/gateway_2_port_conn.png)
+  ![Bestin 2.0의 게이트웨이](https://raw.githubusercontent.com/lunDreame/ha-addons/main/bestin_wallpad/images/gateway2.0_default.png)
+  ![Bestin 2.0의 게이트웨이](https://raw.githubusercontent.com/lunDreame/ha-addons/main/bestin_wallpad/images/gateway2.0_defconn.png)
 
 
 
@@ -181,18 +181,21 @@
 * single_comm (기본값: false)
   * 단일 통신을 활성화할지 비활성화할지 정의합니다. 월패드 통신을 단일 포트로 할 시 true로 설정합니다. Bestin 1.0 게이트웨이 타입 2의 경우
   * true로 설정 시 애드온 구성 energy에 적어주세요.
-    
+* dump_log (기본값: false)
+  * 시리얼 통신 데이터를 로그에 표시합니다. 지원이 필요한 경우 또는 패킷 타입 분석이 필요한 경우 외에는 활성화하지 마세요.
+      
 ### `log`
-* file
+* to_file (기본값: false)
   * true로 설정되어 있으면, '/share/bestin/logs' 경로에 YYYY-MM-DD.log 파일로 저장됩니다. 하루마다 갱신되며 최대 7일 치를 저장합니다.
-* level
-  * log를 저장하는 로그 레벨을 선택합니다. [silly, info, error, warn]
-  * silly: 모든 로그 레벨을 표시합니다.
-  * [info/error/warn]: 해당 로그 레벨만 표시합니다.
+* debug_mode (기본값: false)
+  * 개발자가 예상치 못한 문제를 해결하기 위한 애드온 디버깅 로그입니다. 지원이 필요한 경우 활성화하여 첨부해 주세요.
 
 ## 지원
 * Bestin 2.0 디밍 지원세대의 경우 이 애드온이 완벽하게 동작하지 않습니다. 에너지 컨트롤러 부분에서 
   문제가 발생하고 있으며 추가적인 확인이 필요합니다.
+* 도움이 필요한 경우 디버그 모드(debug_mode) 또는 덤프 로그(dump_log)를 활성화하여 문제가 발생한 상황을 재현한 다음
+  발생한 날짜의 로그 파일을 Github 이슈 또는 HomeAssistant 카페에 공유해주세요.
+  * 개인정보가 포함된 부분은 적절히 마스킹하여 공유 부탁드립니다.
 
 * 애드온 업데이트 이후에 문제가 발생한다면 /share/bestin 폴더의 파일들을 삭제 후 애드온 재시작을 시도해 보세요.
 * 위 경로에 접근하기 위해서 File editor 애드온을 사용하는 경우 (Directories First = true, Enforce Basepath = false) 구성으로 수정
