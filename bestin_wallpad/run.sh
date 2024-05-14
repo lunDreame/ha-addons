@@ -4,25 +4,28 @@ share_dir=/share/bestin
 srv_dir=$share_dir/srv
 
 copy_file() {
-    if [ ! -f "$share_dir/$1" ]; then
-        mkdir -p "$share_dir"
-        mv "/$1" "$share_dir"
+    if [ -f "/$1" ]; then
+        cp -f "/$1" "$share_dir"
+    else
+        echo "WARNING: '$1' not found."
     fi
 }
 
 copy_file_to_srv() {
-    if [ ! -f "$srv_dir/$1" ]; then
-        mkdir -p "$srv_dir"
-        mv "/$1" "$srv_dir"
+    if [ -f "/$1" ]; then
+        cp -f "/$1" "$srv_dir"
+    else
+        echo "WARNING: '$1' not found."
     fi
 }
 
 run_node() {
-    echo "INFO: Running HDC BESTIN Wallpad Add-on..."
+    echo "INFO: Starting HDC BESTIN Wallpad Add-on..."
     cd "$share_dir"
     node bestin.js
 }
 
+# Copy updated *.js files
 copy_file "bestin.js"
 copy_file_to_srv "const.js"
 copy_file_to_srv "logger.js"
