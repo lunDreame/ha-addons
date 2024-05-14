@@ -1,0 +1,104 @@
+{
+    "name": "HDC BESTIN Wallpad",
+    "version": "1.9.4",
+    "slug": "bestin_wallpad",
+    "description": "현대산업개발 베스틴 월패드용 애드온입니다.",
+    "arch": [
+        "armhf",
+        "armv7",
+        "aarch64",
+        "amd64",
+        "i386"
+    ],
+    "map": [
+        "share:rw"
+    ],
+    "url": "https://github.com/lunDreame/ha-addons/blob/main/bestin_wallpad",
+    "startup": "application",
+    "boot": "auto",
+    "uart": true,
+    "options": {
+        "server_enable": false,
+        "server_type": "v2",
+        "smart_lighting": false,
+        "energy": {
+            "type": "socket",
+            "path": "",
+            "address": "",
+            "port": 8899
+        },
+        "control": {
+            "type": "socket",
+            "path": "",
+            "address": "",
+            "port": 8899
+        },
+        "server": {
+            "address": "10.10.1.0",
+            "username": "",
+            "password": "",
+            "uuid": "",
+            "ev_registration": true,
+            "scan_interval": 300
+        },
+        "mqtt": {
+            "broker": "127.0.0.1",
+            "port": 1883,
+            "username": "",
+            "password": "",
+            "prefix": "bestin",
+            "discovery": true
+        },
+        "rs485": {
+            "max_retry": 20,
+            "single_comm": false,
+            "dump_log": false
+        },
+        "log": {
+            "to_file": true,
+            "debug_mode": false
+        }
+    },
+    "schema": {
+        "server_enable": "bool",
+        "server_type": "list(v1|v2)",
+        "smart_lighting": "bool",
+        "energy": {
+            "type": "list(serial|socket)",
+            "path": "str?",
+            "address": "str?",
+            "port": "int"
+        },
+        "control": {
+            "type": "list(serial|socket)",
+            "path": "str?",
+            "address": "str?",
+            "port": "int"
+        },
+        "server": {
+            "address": "str?",
+            "username": "str?",
+            "password": "str?",
+            "uuid": "str?",
+            "ev_registration": "bool",
+            "scan_interval": "int(0,1800)"
+        },
+        "mqtt": {
+            "broker": "str",
+            "port": "int(0,65535)",
+            "username": "str?",
+            "password": "str?",
+            "prefix": "str",
+            "discovery": "bool"
+        },
+        "rs485": {
+            "max_retry": "int(0,100)",
+            "single_comm": "bool",
+            "dump_log": "bool"
+        },
+        "log": {
+            "to_file": "bool",
+            "debug_mode": "bool"
+        }
+    }
+}
