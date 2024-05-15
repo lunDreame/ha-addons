@@ -6,14 +6,16 @@ srv_dir=$share_dir/srv
 create_dir_if_not_exists() {
     if [ ! -d "$1" ]; then
         mkdir -p "$1"
+        echo "INFO: Created directory '$1'."
     fi
 }
 
 copy_file() {
     if [ -f "/$1" ]; then
         cp -f "/$1" "$2"
+        echo "INFO: Copied '$1' to '$2'."
     else
-        echo "WARNING: '$1' not found."
+        echo "WARNING: File '$1' not found."
     fi
 }
 
