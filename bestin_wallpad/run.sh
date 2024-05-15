@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 share_dir=/share/bestin
 srv_dir=$share_dir/srv
@@ -11,35 +11,24 @@ create_dir_if_not_exists() {
 
 copy_file() {
     if [ -f "/$1" ]; then
-        cp -f "/$1" "$share_dir"
+        cp -f "/$1" "$2"
     else
         echo "WARNING: '$1' not found."
     fi
-}
-
-copy_file_to_srv() {
-    if [ -f "/$1" ]; then
-        cp -f "/$1" "$srv_dir"
-    else
-        echo "WARNING: '$1' not found."
-    fi
-}
-
-run_node() {
-    echo "INFO: Starting HDC BESTIN Wallpad Add-on..."
-    cd "$share_dir"
-    node bestin.js
 }
 
 create_dir_if_not_exists "$share_dir"
 create_dir_if_not_exists "$srv_dir"
 
-copy_file "bestin.js"
-copy_file_to_srv "const.js"
-copy_file_to_srv "logger.js"
+copy_file "bestin.js" "$share_dir"
+copy_file "const.js" "$srv_dir"
+copy_file "logger.js" "$srv_dir"
 
 if [ -f "$share_dir/bestin.js" ]; then
-    run_node
+    echo "INFO: 'bestin.js' copied successfully."
+    echo "INFO: Starting HDC BESTIN Wallpad Add-on..."
+    cd "$share_dir"
+    node bestin.js
 else
     echo "ERROR: Failed to copy 'bestin.js' to $share_dir"
     exit 1
