@@ -3,6 +3,12 @@
 share_dir=/share/bestin
 srv_dir=$share_dir/srv
 
+create_dir_if_not_exists() {
+    if [ ! -d "$1" ]; then
+        mkdir -p "$1"
+    fi
+}
+
 copy_file() {
     if [ -f "/$1" ]; then
         cp -f "/$1" "$share_dir"
@@ -25,7 +31,9 @@ run_node() {
     node bestin.js
 }
 
-# Copy updated *.js files
+create_dir_if_not_exists "$share_dir"
+create_dir_if_not_exists "$srv_dir"
+
 copy_file "bestin.js"
 copy_file_to_srv "const.js"
 copy_file_to_srv "logger.js"
