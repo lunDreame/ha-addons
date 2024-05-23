@@ -96,6 +96,26 @@ const V2ELEVATORCMD = {
     }
 };
 
+const THERMOPWMAP = {
+    0x01: "heat",
+    0x02: "off",
+    0x05: "heat",
+    0x06: "heat",
+    0x07: "off",
+    0x11: "heat",
+
+}
+
+const THERMOPSMAP = {
+    0x01: "None",
+    0x02: "None",
+    0x05: "Sleep",
+    0x06: "Timer",
+    0x07: "Pause",
+    0x11: "None",
+
+}
+
 const HEMSELEM = ["electric", "water", "hotwater", "gas", "heat"];
 
 const HEMSUNIT = {
@@ -197,6 +217,14 @@ const DISCOVERY_PAYLOAD = {
         "stat_t": "~/state",
         "ic": "mdi:gas-cylinder",
     }],
+    "doorlock": [{
+        "_intg": "switch",
+        "~": "{0}/doorlock/{1}/{2}",
+        "name": "{0}_doorlock",
+        "cmd_t": "~/command",
+        "stat_t": "~/state",
+        "ic": "mdi:lock",
+    }],
     "fan": [{
         "_intg": "fan",
         "~": "{0}/fan/{1}",
@@ -275,7 +303,9 @@ module.exports = {
     V2LIGHTCMD,
     V2SLIGHTCMD,
     V2ELEVATORCMD,
-
+    
+    THERMOPWMAP,
+    THERMOPSMAP,
     HEMSUNIT,
     HEMSELEM,
     HEMSMAP,
