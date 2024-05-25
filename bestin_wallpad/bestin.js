@@ -103,6 +103,15 @@ const DEVICE_INFO = [
         }
     },
 
+    // DOORLOCK
+    {
+        device: 'doorlock', header: '024102', length: 10, request: 'set', forceCommand: 'ON',
+        setPropertyToMsg: (buf, rom, idx, val) => {
+            buf[4] = 0x01;
+            return buf;
+        }
+    },
+
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// STATE
 
     // LIGHT
@@ -174,6 +183,16 @@ const DEVICE_INFO = [
         parseToProperty: (buf) => {
             return {
                 device: 'gas', value: { 'power': (buf[5] ? "ON" : "OFF") }
+            };
+        }
+    },
+
+    // DOORLOCK
+    {
+        device: 'doorlock', header: '024180', length: 10, request: 'ack',
+        parseToProperty: (buf) => {
+            return {
+                device: 'doorlock', value: { 'power': (buf[5] ? "ON" : "OFF") }
             };
         }
     },

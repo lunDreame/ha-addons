@@ -197,6 +197,14 @@ const DISCOVERY_PAYLOAD = {
         "stat_t": "~/state",
         "ic": "mdi:gas-cylinder",
     }],
+    "doorlock": [{
+        "_intg": "switch",
+        "~": "{0}/doorlock/{1}/{2}",
+        "name": "{0}_doorlock",
+        "cmd_t": "~/command",
+        "stat_t": "~/state",
+        "ic": "mdi:lock",
+    }],
     "fan": [{
         "_intg": "fan",
         "~": "{0}/fan/{1}",
