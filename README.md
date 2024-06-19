@@ -13,6 +13,7 @@
 ![Supports i386 Architecture][i386-shield]
 
 This add-on is for the bestin `1.0, 2.0` wallpad user
+- 새로운 베스틴 사용자 통합이 예정되어 있습니다. 더 이상 이 베스틴 애드온은 유지 보수되지 않습니다.
 
 ### [EasyRoll Smart Blind add-on](./easyroll_blind)
 
