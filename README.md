@@ -4,7 +4,7 @@
 
 ## Add-ons
 
-### **Deprecated**
+### **Deprecated** (더 이상 사용되지 않음)
 -  [HDC BESTIN Wallpad add-on](./bestin_wallpad) 
    - **애드온 대신 이 사용자 [통합](https://github.com/lunDreame/ha-bestin)을 사용하세요.**
 -  [EasyRoll Smart Blind add-on](./easyroll_blind)
