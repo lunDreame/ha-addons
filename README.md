@@ -4,30 +4,7 @@
 
 ## Add-ons
 
-### [HDC BESTIN Wallpad add-on](./bestin_wallpad)
-
-![Supports aarch64 Architecture][aarch64-shield]
-![Supports amd64 Architecture][amd64-shield]
-![Supports armhf Architecture][armhf-shield]
-![Supports armv7 Architecture][armv7-shield]
-![Supports i386 Architecture][i386-shield]
-
-This add-on is for the bestin `1.0, 2.0` wallpad user
-- 새로운 [베스틴 사용자 통합](https://github.com/lunDreame/ha-bestin)이 예정되어 있습니다. 더 이상 이 베스틴 애드온은 유지 보수되지 않습니다.
-
-### [EasyRoll Smart Blind add-on](./easyroll_blind)
-
-![Supports aarch64 Architecture][aarch64-shield]
-![Supports amd64 Architecture][amd64-shield]
-![Supports armhf Architecture][armhf-shield]
-![Supports armv7 Architecture][armv7-shield]
-![Supports i386 Architecture][i386-shield]
-
-> [!IMPORTANT]
-> This add-on is deprecated.
-
-[aarch64-shield]: https://img.shields.io/badge/aarch64-yes-green.svg
-[amd64-shield]: https://img.shields.io/badge/amd64-yes-green.svg
-[armhf-shield]: https://img.shields.io/badge/armhf-yes-green.svg
-[armv7-shield]: https://img.shields.io/badge/armv7-yes-green.svg
-[i386-shield]: https://img.shields.io/badge/i386-yes-green.svg
+### **Deprecated**
+-  [HDC BESTIN Wallpad add-on](./bestin_wallpad) 
+   - **애드온 대신 이 사용자 [통합](https://github.com/lunDreame/ha-bestin)을 사용하세요.**
+-  [EasyRoll Smart Blind add-on](./easyroll_blind)
